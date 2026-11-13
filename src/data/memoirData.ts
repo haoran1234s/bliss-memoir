@@ -122,14 +122,14 @@ export const videos: MemoirVideo[] = [
     id: 'pickup',
     title: '接亲',
     subtitle: '',
-    videoUrl: 'memoir/video/pickup.mp4',
+    videoUrl: 'memoir/video/pickup/playlist.m3u8',
     posterUrl: 'memoir/video/pickup.jpg',
   },
   {
     id: 'ceremony',
     title: '典礼',
     subtitle: '',
-    videoUrl: 'memoir/video/ceremony.mp4',
+    videoUrl: 'memoir/video/ceremony/playlist.m3u8',
     posterUrl: 'memoir/video/ceremony.jpg',
   },
 ];

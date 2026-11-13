@@ -230,7 +230,6 @@ const CIRCULAR_FRAGMENT = /* glsl */ `
   uniform vec3 uBaseColor;
   uniform vec2 uCardSize;
   uniform float uPhotoAspect;
-  uniform float uBrightness;
   uniform float uCardAlpha;
 
   varying vec2 vLocalPos;
@@ -271,11 +270,6 @@ const CIRCULAR_FRAGMENT = /* glsl */ `
       vec3 dCol = texture2D(uDirectTex, photoUv).rgb;
       col = mix(col, dCol, uHasDirect);
     }
-
-    // 侧翼景深聚光衰减 + 1px 微光边缘切线
-    col *= clamp(uBrightness, 0.35, 1.0);
-    float rim = smoothstep(-0.015, -0.001, sd) * cardMask;
-    col = mix(col, vec3(1.0), rim * (0.04 + 0.08 * uBrightness));
 
     gl_FragColor = vec4(col, totalAlpha);
   }
@@ -369,7 +363,6 @@ function ThreeArcContent({
           uHasDirect: { value: 0 },
           uBaseColor: { value: new THREE.Color('#e4e4e7') },
           uPhotoAspect: { value: 1 },
-          uBrightness: { value: 1 },
           uCardAlpha: { value: 1 },
         },
       });
@@ -480,13 +473,11 @@ function ThreeArcContent({
       mesh.scale.set(scale, scale, 1);
       mesh.renderOrder = Math.round((10 - absD) * 100);
 
-      const brightness = Math.max(0.38, 1 - absD * 0.175);
-      const cardAlpha = absD <= 3.1 ? 1 : Math.max(0, 1 - (absD - 3.1) / 0.9);
+      const cardAlpha = absD <= 3.5 ? 1 : Math.max(0, 1 - (absD - 3.5) / 0.5);
 
       mat.uniforms.uCardSize.value.set(w, h);
       mat.uniforms.uSpeed.value = smoothSpeedRef.current;
       mat.uniforms.uPhotoAspect.value = Math.max(0.25, photo.aspect);
-      mat.uniforms.uBrightness.value = brightness;
       mat.uniforms.uCardAlpha.value = cardAlpha;
       mat.uniforms.uBaseColor.value.copy(parseHexColor(photo.color));
 
@@ -590,7 +581,6 @@ function CssArcFallback({
           const rotZ = -d * 4.7;
           const rotY = (Math.tanh(d * 0.9) * 0.22 + d * 0.045) * (180 / Math.PI);
           const scale = Math.max(0.66, 1 - absD * 0.082);
-          const brightness = Math.max(0.4, 1 - absD * 0.175);
 
           return (
             <div
@@ -601,7 +591,6 @@ function CssArcFallback({
                 aspectRatio: '1 / 1.05',
                 backgroundColor: photo.color,
                 transform: `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, ${z.toFixed(1)}px) rotateY(${rotY.toFixed(2)}deg) rotateZ(${rotZ.toFixed(2)}deg) scale(${scale.toFixed(3)})`,
-                filter: `brightness(${brightness.toFixed(2)})`,
                 zIndex: 30 - Math.round(absD * 5),
               }}
             >
