@@ -10,7 +10,6 @@
 import { useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { AlbumHeader, FloatingDock } from './components/album/AlbumHeader';
-import { EditorialCoverModal } from './components/album/HeroCover';
 import { PhotoGallery } from './components/album/PhotoGallery';
 import { PhotoLightbox } from './components/album/PhotoLightbox';
 import { VideoTheater } from './components/album/VideoTheater';
@@ -146,7 +145,6 @@ export default function App() {
       <FloatingDock />
 
       <AnimatePresence>
-        {coverModalOpen && <EditorialCoverModal key="editorial-cover" />}
         {lightboxOpen && <PhotoLightbox key="lightbox" />}
       </AnimatePresence>
     </div>

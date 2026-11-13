@@ -15,17 +15,15 @@ import {
   ChevronLeft,
   ChevronRight,
   ImageOff,
-  MapPin,
   Pause,
   Play,
   RotateCcw,
   X,
   ZoomIn,
 } from 'lucide-react';
-import { chapters, photos } from '../../data/library';
+import { photos } from '../../data/library';
 import { unlockBgmNow } from '../../media/bgm';
 import { useAlbumStore } from '../../store/useAlbumStore';
-import { paletteOf } from '../../theme/palettes';
 import { CALM_EASE } from './albumHelpers';
 
 const MAX_ZOOM = 4;
@@ -162,13 +160,9 @@ export function PhotoLightbox() {
   const { closeLightbox, stepLightbox, jumpLightbox, toggleSlideshow, stopSlideshow } =
     useAlbumStore.getState();
 
-  // 退场动画期间 lightboxIndex 变为 null，保留最后查看的图片下标防止空指针
   const keptRef = useRef(lightboxIndex ?? 0);
   if (lightboxIndex !== null) keptRef.current = lightboxIndex;
   const index = keptRef.current;
-  const photo = photos[index] ?? photos[0];
-  const chapter = chapters[photo.chapter];
-  const palette = paletteOf(chapter?.palette, photo.chapter);
 
   const posInList = Math.max(0, lightboxList.indexOf(index));
   const listLen = Math.max(1, lightboxList.length);
@@ -612,8 +606,6 @@ export function PhotoLightbox() {
     crossfadeOnly: slideshow || prefersReducedMotion,
   };
 
-  const hasMetaText = Boolean(photo.title || photo.story || photo.place || photo.date);
-
   return (
     <motion.div
       role="dialog"
@@ -628,92 +620,54 @@ export function PhotoLightbox() {
       {/* 纯净暗房背景 */}
       <div ref={backdropRef} className="absolute inset-0 bg-[#09090b]" />
 
-      {/* 顶栏 */}
+      {/* 极简纯图标顶栏 */}
       <div
         className={`relative z-20 px-safe pt-safe transition-opacity duration-200 ${
           chromeVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
       >
-        <header className="flex items-center justify-between gap-3 px-4 pt-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.08] px-3.5 py-2 text-[13px] backdrop-blur-md">
-            <span
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: palette.accent }}
-              aria-hidden="true"
-            />
-            <span className="truncate font-medium text-white">
-              {chapter?.title ?? '回忆'}
-            </span>
-            {chapter && (
-              <span className="shrink-0 font-display text-[11.5px] text-zinc-300 tabular-nums">
-                {photo.indexInChapter + 1} / {chapter.count}
-              </span>
+        <header className="flex items-center justify-end gap-2 px-4 pt-3 sm:px-6">
+          <button
+            type="button"
+            onClick={toggleButtonZoom}
+            aria-label={isZoomed ? '还原照片比例' : '放大照片'}
+            className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/[0.08] text-white backdrop-blur-md transition-colors hover:bg-white/[0.15] active:scale-95"
+          >
+            {isZoomed ? (
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <ZoomIn className="h-4 w-4" aria-hidden="true" />
             )}
-            {chapter && listLen > chapter.count && (
-              <span className="hidden shrink-0 font-display text-[11.5px] text-zinc-400 tabular-nums sm:inline">
-                · {posInList + 1} / {listLen}
-              </span>
-            )}
-          </div>
+          </button>
 
-          <div className="flex shrink-0 items-center gap-2">
+          {listLen > 1 && (
             <button
               type="button"
-              onClick={toggleButtonZoom}
-              aria-label={isZoomed ? '还原照片比例' : '放大照片'}
-              title={isZoomed ? '还原 1:1' : '放大细节'}
-              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.08] px-3 text-[12.5px] text-white backdrop-blur-md transition-colors hover:bg-white/[0.15] active:scale-95"
+              onClick={onToggleSlideshow}
+              aria-pressed={slideshow}
+              aria-label={slideshow ? '暂停自动放映' : '开始自动放映'}
+              className={`grid h-10 w-10 place-items-center rounded-full border backdrop-blur-md transition-colors active:scale-95 ${
+                slideshow
+                  ? 'border-white bg-white text-zinc-950'
+                  : 'border-white/10 bg-white/[0.08] text-white hover:bg-white/[0.15]'
+              }`}
             >
-              {isZoomed ? (
-                <>
-                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span className="hidden sm:inline">还原</span>
-                </>
+              {slideshow ? (
+                <Pause className="h-4 w-4" fill="currentColor" aria-hidden="true" />
               ) : (
-                <>
-                  <ZoomIn className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span className="hidden sm:inline">放大</span>
-                </>
+                <Play className="h-4 w-4" fill="currentColor" aria-hidden="true" />
               )}
             </button>
+          )}
 
-            {listLen > 1 && (
-              <button
-                type="button"
-                onClick={onToggleSlideshow}
-                aria-pressed={slideshow}
-                aria-label={slideshow ? '暂停自动放映' : '开始自动放映'}
-                title={slideshow ? '暂停放映（空格）' : '自动放映（空格）'}
-                className={`inline-flex h-10 items-center gap-1.5 rounded-full border px-3 text-[12.5px] backdrop-blur-md transition-colors active:scale-95 ${
-                  slideshow
-                    ? 'border-white bg-white font-medium text-zinc-950'
-                    : 'border-white/10 bg-white/[0.08] text-white hover:bg-white/[0.15]'
-                }`}
-              >
-                {slideshow ? (
-                  <>
-                    <Pause className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true" />
-                    <span>暂停</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true" />
-                    <span>放映</span>
-                  </>
-                )}
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={closeLightbox}
-              aria-label="关闭大图查看"
-              title="关闭（Esc）"
-              className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/[0.08] text-white backdrop-blur-md transition-colors hover:bg-white/[0.15] active:scale-95"
-            >
-              <X className="h-4.5 w-4.5" aria-hidden="true" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={closeLightbox}
+            aria-label="关闭大图查看"
+            className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/[0.08] text-white backdrop-blur-md transition-colors hover:bg-white/[0.15] active:scale-95"
+          >
+            <X className="h-4.5 w-4.5" aria-hidden="true" />
+          </button>
         </header>
       </div>
 
@@ -768,40 +722,13 @@ export function PhotoLightbox() {
         )}
       </div>
 
-      {/* 底部信息 + 35mm 胶片缩略图导览条 */}
+      {/* 底部 35mm 缩略图导览条（无单图文字说明） */}
       <div
         className={`relative z-20 px-safe pb-safe transition-opacity duration-200 ${
           chromeVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
       >
-        <footer className="flex flex-col items-center gap-2.5 px-4 pb-3 sm:px-6">
-          {hasMetaText && (
-            <div className="max-w-2xl text-center">
-              {photo.title && (
-                <div className="text-[17px] font-medium leading-snug text-white">
-                  {photo.title}
-                </div>
-              )}
-              {photo.story && (
-                <p className="mt-1 max-h-[4.8em] overflow-y-auto text-[13px] leading-relaxed text-zinc-300">
-                  {photo.story}
-                </p>
-              )}
-              {(photo.place || photo.date) && (
-                <div className="mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-[11.5px] text-zinc-400">
-                  {photo.place && (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{photo.place}</span>
-                    </span>
-                  )}
-                  {photo.date && <span className="font-display tabular-nums">{photo.date}</span>}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 胶片缩略图条（矮屏横屏时隐藏以把高度留给照片） */}
+        <footer className="flex flex-col items-center px-4 pb-3 sm:px-6">
           {listLen > 1 && (
             <div className="w-full max-w-4xl short:hidden">
               <div

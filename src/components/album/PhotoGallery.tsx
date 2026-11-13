@@ -1,15 +1,14 @@
 /**
- * 幸福回忆录核心画廊视图（Designeer 瑞士网格 × React Bits 3D 组件体系）
+ * 纯净照片画廊核心视图（3D 环幕 / 3D 叠片 / 原比例瀑布流）
  * ------------------------------------------------------------
- * 在手机单手操作下提供三种高度顺滑、零 AI 模板感的看图模式（通过底部 Dock 秒切）：
+ * 彻底去除所有单图对应的文字、编号、故事和顶部横幅文字，专注纯视觉看图体验：
  *   1. arc（3D 环幕，复刻 react-bits/CircularGallery）：
- *      - 纯无框圆角 WebGL 平面 + 速度驱动流体波浪形变（Velocity Wave + Bend Shader）；
- *      - 静止时照片 100% 端正无畸变，手指滑动瞬间呈现柔和胶片弧度与深度层次；
- *      - 真实均值色 + AtlasStreamer 图集 + 焦点原片 Texture LRU + WebGL 异常降级 CSS 3D；
+ *      - 纯无框圆角 WebGL 平面 + 滑动速度流体波浪形变（Velocity Wave + Bend Shader）；
+ *      - 静止时照片端正锐利、零畸变，轻点中央大图即刻全屏放大；
  *   2. stack（3D 叠片，复刻 react-bits/Stack）：
- *      - 实体相纸 3D 层叠手势切牌，支持任意方向拖曳、甩牌飞出与后牌跟进缩放；
- *   3. grid（瑞士瀑布流，复刻 designeer.xyz 裸露网格 × react-bits/Masonry）：
- *      - 手机端双列原比例瀑布流 + 1px 结构网格线 + 四角十字准星档案头卡，零裁切。
+ *      - 单手拖拽甩牌切图 + 后排牌实时纵深跟进；
+ *   3. grid（原比例瀑布流，复刻 react-bits/Masonry）：
+ *      - 手机双列纯粹图片流，保留原图长宽比不裁切，无任何下方文字条。
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type {
@@ -19,19 +18,15 @@ import type {
 } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ChevronLeft, ChevronRight, ImageOff, MapPin, ZoomIn } from 'lucide-react';
-import { atlas, chapters, photos } from '../../data/library';
-import { couple } from '../../data/memoirData';
+import { ImageOff } from 'lucide-react';
+import { atlas, photos } from '../../data/library';
 import { getDeviceTier } from '../../hooks/useDeviceTier';
 import { unlockBgmNow } from '../../media/bgm';
 import { useAlbumStore, type ThemeMode } from '../../store/useAlbumStore';
 import { AtlasStreamer } from '../../three/atlas';
 import type { Photo } from '../../types';
-import { formatFrameNo, getFilteredPhotos } from './albumHelpers';
+import { getFilteredPhotos } from './albumHelpers';
 
-/* ============================================================
-   公共工具：WebGL 检测、配色解析、贴图 LRU 缓存
-   ============================================================ */
 interface ReelPhysics {
   scrollPos: number;
   targetPos: number;
@@ -60,8 +55,8 @@ function parseHexColor(hex: string): THREE.Color {
 }
 
 function computeArcCardSize(aspect: number, vpWidth: number, vpHeight: number) {
-  const maxW = vpWidth * 0.78;
-  const maxH = vpHeight * 0.56;
+  const maxW = vpWidth * 0.82;
+  const maxH = vpHeight * 0.6;
   let w = maxW;
   let h = w / Math.max(0.25, aspect);
   if (h > maxH) {
@@ -211,7 +206,6 @@ const CIRCULAR_VERTEX = /* glsl */ `
     pos.x *= uCardSize.x;
     pos.y *= uCardSize.y;
 
-    // 复刻 react-bits/CircularGallery：滑动速度驱动丝绸波浪与纵深弯曲
     float normY = position.y;
     float wave = sin(uv.x * 3.1415926) * clamp(uSpeed, -1.6, 1.6) * 0.14;
     pos.z += wave - (normY * normY) * uBend;
@@ -236,7 +230,6 @@ const CIRCULAR_FRAGMENT = /* glsl */ `
   varying vec2 vUv;
 
   void main() {
-    // 纯净无外框：SDF 平滑裁切圆角（borderRadius = 0.042）
     vec2 size = uCardSize;
     vec2 p = (vUv - 0.5) * size;
     float radius = min(size.x, size.y) * 0.042;
@@ -261,7 +254,6 @@ const CIRCULAR_FRAGMENT = /* glsl */ `
       col = mix(col, dCol, uHasDirect);
     }
 
-    // 远端卡片平滑淡入画布背景色（日间融合为柔白，暗房融合为碳黑）
     col = mix(uBgColor, col, clamp(uFade, 0.12, 1.0));
     gl_FragColor = vec4(col, alpha * clamp(0.45 + 0.55 * uFocus, 0.45, 1.0));
   }
@@ -270,21 +262,19 @@ const CIRCULAR_FRAGMENT = /* glsl */ `
 const VISIBLE_RADIUS = 4;
 const POOL_SLOTS = VISIBLE_RADIUS * 2 + 1;
 
-interface ThreeArcContentProps {
-  list: Photo[];
-  theme: ThemeMode;
-  physicsRef: MutableRefObject<ReelPhysics>;
-  onCenterSnapChange: (photoIndex: number) => void;
-  reducedMotion: boolean;
-}
-
 function ThreeArcContent({
   list,
   theme,
   physicsRef,
   onCenterSnapChange,
   reducedMotion,
-}: ThreeArcContentProps) {
+}: {
+  list: Photo[];
+  theme: ThemeMode;
+  physicsRef: MutableRefObject<ReelPhysics>;
+  onCenterSnapChange: (photoIndex: number) => void;
+  reducedMotion: boolean;
+}) {
   const { gl, scene, viewport } = useThree();
   const tier = getDeviceTier();
 
@@ -381,11 +371,8 @@ function ThreeArcContent({
     if (len === 0) return;
 
     const dt = Math.min(delta, 0.05);
-
-    // 同步画布背景色（丝滑过渡日间柔白 ↔ 暗房碳黑）
     bgCurrentRef.current.lerp(bgTarget, Math.min(1, dt * 10));
 
-    // 平滑物理阻尼滚动
     if (!phy.dragging) {
       if (reducedMotion) {
         phy.scrollPos = phy.targetPos;
@@ -399,7 +386,6 @@ function ThreeArcContent({
       }
     }
 
-    // 计算实时滑动速度驱动流体弯曲
     const instVel = dt > 0.001 ? (phy.scrollPos - prevScrollRef.current) / dt : 0;
     prevScrollRef.current = phy.scrollPos;
     const targetSpeed = reducedMotion ? 0 : instVel * 0.14;
@@ -434,7 +420,7 @@ function ThreeArcContent({
     }
     atlasStreamer.update(performance.now());
 
-    const radiusY = viewport.height * 0.56;
+    const radiusY = viewport.height * 0.58;
     const radiusZ = 1.9;
     const angleStep = 0.45;
     const speedBendBoost = Math.min(0.14, Math.abs(smoothSpeedRef.current) * 0.09);
@@ -461,8 +447,7 @@ function ThreeArcContent({
       mesh.visible = true;
       const theta = d * angleStep;
 
-      // 垂直 3D 圆柱弧面排布：0° 水平中心、无左右甩动、无侧倾
-      const y = -Math.sin(theta) * radiusY - d * 0.14 + 0.08;
+      const y = -Math.sin(theta) * radiusY - d * 0.14;
       const z = -(1 - Math.cos(theta)) * radiusZ - Math.abs(d) * 0.36;
       const rotX = -theta * 0.72;
 
@@ -518,7 +503,7 @@ function ThreeArcContent({
   );
 }
 
-/* CSS 3D 降级环幕（WebGL 不可用时保证 100% 正常看图） */
+/* CSS 3D 降级环幕 */
 function CssArcFallback({
   list,
   physicsRef,
@@ -577,7 +562,7 @@ function CssArcFallback({
           const d = slot - renderPos;
           const absD = Math.abs(d);
           const theta = d * 22;
-          const translateY = d * 200;
+          const translateY = d * 210;
           const translateZ = -Math.pow(absD, 1.35) * 130;
           const fade = Math.max(0.28, Math.exp(-d * d * 0.34));
 
@@ -586,9 +571,9 @@ function CssArcFallback({
               key={photo.id}
               className="absolute overflow-hidden rounded-xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.28)]"
               style={{
-                width: `min(74vw, ${Math.round(Math.min(440, 310 * photo.aspect))}px)`,
+                width: `min(78vw, ${Math.round(Math.min(460, 320 * photo.aspect))}px)`,
                 aspectRatio: `${photo.w} / ${photo.h}`,
-                maxHeight: '50vh',
+                maxHeight: '56vh',
                 backgroundColor: photo.color,
                 transform: `translate3d(0px, ${translateY.toFixed(1)}px, ${translateZ.toFixed(1)}px) rotateX(${(-theta).toFixed(2)}deg)`,
                 opacity: fade,
@@ -597,7 +582,7 @@ function CssArcFallback({
             >
               <img
                 src={absD <= 1.2 ? photo.full : photo.thumb}
-                alt={photo.title ?? ''}
+                alt=""
                 decoding="async"
                 draggable={false}
                 className="h-full w-full object-cover"
@@ -610,7 +595,7 @@ function CssArcFallback({
   );
 }
 
-/* 右侧瑞士极简进度拨盘（单手大拇指快拖定位） */
+/* 右侧纯视觉刻度快速滑轨（无任何文字气泡） */
 function SwissEdgeScrubber({
   list,
   activeSlot,
@@ -623,8 +608,6 @@ function SwissEdgeScrubber({
   const railRef = useRef<HTMLDivElement>(null);
   const [scrubbing, setScrubbing] = useState(false);
   const count = list.length;
-  const activePhoto = list[activeSlot] ?? list[0];
-  const activeChapter = activePhoto ? chapters[activePhoto.chapter] : undefined;
 
   const updateFromClientY = useCallback(
     (clientY: number, snap: boolean) => {
@@ -641,7 +624,7 @@ function SwissEdgeScrubber({
   const progress = (activeSlot / Math.max(1, count - 1)) * 100;
 
   return (
-    <div className="pointer-events-none fixed bottom-44 right-2 top-28 z-20 flex items-center px-safe sm:right-4">
+    <div className="pointer-events-none fixed bottom-24 right-2 top-20 z-20 flex items-center px-safe sm:right-4">
       <div
         ref={railRef}
         role="slider"
@@ -650,7 +633,7 @@ function SwissEdgeScrubber({
         aria-valuemax={count}
         aria-valuenow={activeSlot + 1}
         tabIndex={0}
-        className="pointer-events-auto relative flex h-full w-9 flex-col items-end justify-between py-2 pr-1.5"
+        className="pointer-events-auto relative flex h-full w-8 flex-col items-end justify-between py-2 pr-1.5"
         style={{ touchAction: 'none' }}
         onPointerDown={(e) => {
           e.stopPropagation();
@@ -678,37 +661,18 @@ function SwissEdgeScrubber({
             style={{
               width: idx % 3 === 0 ? '10px' : '5px',
               backgroundColor: 'var(--ink-soft)',
-              opacity: idx % 3 === 0 ? 0.55 : 0.25,
+              opacity: idx % 3 === 0 ? 0.5 : 0.22,
             }}
           />
         ))}
 
-        <div
-          className="pointer-events-none absolute right-0.5 flex items-center transition-[top] duration-75"
-          style={{ top: `calc(${progress}% - 7px)` }}
-        >
-          {scrubbing && activePhoto && (
-            <div
-              className="mr-3 whitespace-nowrap rounded-lg border px-2.5 py-1 shadow-md backdrop-blur-md"
-              style={{
-                backgroundColor: 'var(--surface)',
-                borderColor: 'var(--border)',
-                color: 'var(--ink)',
-              }}
-            >
-              <div className="text-[11.5px] font-medium">
-                {activeChapter?.title ?? '照片档案'}
-              </div>
-              <div className="font-display text-[10.5px] text-[var(--ink-soft)] tabular-nums">
-                {formatFrameNo(activeSlot + 1)} / {formatFrameNo(count)}
-              </div>
-            </div>
-          )}
-          <span
-            className="h-3.5 w-1.5 rounded-full"
-            style={{ backgroundColor: 'var(--ink)' }}
-          />
-        </div>
+        <span
+          className="pointer-events-none absolute right-0.5 h-3.5 w-1.5 rounded-full transition-[top] duration-75"
+          style={{
+            top: `calc(${progress}% - 7px)`,
+            backgroundColor: 'var(--ink)',
+          }}
+        />
       </div>
     </div>
   );
@@ -826,8 +790,8 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
       const rect = stageRef.current?.getBoundingClientRect();
       if (rect && list[activeSlot]) {
         const relY = (e.clientY - rect.top) / Math.max(1, rect.height);
-        if (relY < 0.28) phy.targetPos = Math.max(0, activeSlot - 1);
-        else if (relY > 0.72) phy.targetPos = Math.min(maxPos, activeSlot + 1);
+        if (relY < 0.25) phy.targetPos = Math.max(0, activeSlot - 1);
+        else if (relY > 0.75) phy.targetPos = Math.min(maxPos, activeSlot + 1);
         else {
           unlockBgmNow();
           openLightbox(list[activeSlot].index, listIndices, false);
@@ -879,9 +843,6 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
     [list, setActivePhotoIndex, stopAutoplay],
   );
 
-  const activePhoto = list[activeSlot] ?? list[0];
-  const activeChapter = activePhoto ? chapters[activePhoto.chapter] : undefined;
-
   return (
     <div className="relative h-full w-full overflow-hidden">
       <div
@@ -922,87 +883,29 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
           />
         )}
 
-        {/* 上下自然羽化渐变，融入极简背景 */}
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-28"
+          className="pointer-events-none absolute inset-x-0 top-0 h-20"
           style={{
             background: 'linear-gradient(to bottom, var(--bg) 25%, transparent)',
           }}
           aria-hidden="true"
         />
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-52"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-28"
           style={{
-            background: 'linear-gradient(to top, var(--bg) 38%, transparent)',
+            background: 'linear-gradient(to top, var(--bg) 25%, transparent)',
           }}
           aria-hidden="true"
         />
       </div>
 
       <SwissEdgeScrubber list={list} activeSlot={activeSlot} onScrubTo={handleDialScrub} />
-
-      {/* 底部极简瑞士展签（留出底部 Dock 高度） */}
-      {activePhoto && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-20 z-20 px-safe pb-safe">
-          <div className="pointer-events-auto mx-auto flex max-w-xl items-end justify-between gap-3 px-4 pr-10 sm:px-6 sm:pr-6">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-[11px] text-[var(--ink-soft)]">
-                <span className="font-display tabular-nums">
-                  {formatFrameNo(activeSlot + 1)} / {formatFrameNo(list.length)}
-                </span>
-                {activeChapter && <span>· {activeChapter.title}</span>}
-              </div>
-              {activePhoto.title && (
-                <h2 className="mt-0.5 truncate text-[16px] font-semibold tracking-[-0.01em] text-[var(--ink)] sm:text-[18px]">
-                  {activePhoto.title}
-                </h2>
-              )}
-              {activePhoto.story && (
-                <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-[var(--ink-soft)]">
-                  {activePhoto.story}
-                </p>
-              )}
-              {(activePhoto.place || activePhoto.date) && (
-                <div className="mt-1 flex items-center gap-2.5 text-[11px] text-[var(--ink-soft)]">
-                  {activePhoto.place && (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-3 w-3" aria-hidden="true" />
-                      <span>{activePhoto.place}</span>
-                    </span>
-                  )}
-                  {activePhoto.date && (
-                    <span className="font-display tabular-nums">{activePhoto.date}</span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                unlockBgmNow();
-                openLightbox(activePhoto.index, listIndices, false);
-              }}
-              aria-label="全屏查看原片"
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors active:scale-95"
-              style={{
-                borderColor: 'var(--border)',
-                backgroundColor: 'var(--surface)',
-                color: 'var(--ink)',
-              }}
-            >
-              <ZoomIn className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>原片</span>
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 /* ============================================================
-   模式二：3D 叠片（复刻 react-bits/Stack 物理层叠相纸手势甩牌）
+   模式二：3D 叠片（纯无字手势层叠相纸牌）
    ============================================================ */
 function InteractiveStackGallery({ list, activeSlot }: { list: Photo[]; activeSlot: number }) {
   const autoplay = useAlbumStore((s) => s.autoplay);
@@ -1028,14 +931,12 @@ function InteractiveStackGallery({ list, activeSlot }: { list: Photo[]; activeSl
     [activeSlot, list, setActivePhotoIndex],
   );
 
-  // 自动放映支持
   useEffect(() => {
     if (!autoplay || list.length <= 1) return;
     const timer = window.setInterval(() => stepBy(1), 3600);
     return () => window.clearInterval(timer);
   }, [autoplay, list.length, stepBy]);
 
-  // 后台预加载随后 3 张相纸原图
   useEffect(() => {
     const imgs: HTMLImageElement[] = [];
     for (let i = 1; i <= 3; i++) {
@@ -1062,8 +963,6 @@ function InteractiveStackGallery({ list, activeSlot }: { list: Photo[]; activeSl
   }, [activeSlot, list, visibleCount]);
 
   const currentPhoto = list[activeSlot] ?? list[0];
-  const currentChapter = currentPhoto ? chapters[currentPhoto.chapter] : undefined;
-
   const dragDist = Math.hypot(dragOffset.x, dragOffset.y);
   const progress = Math.min(1, dragDist / 120);
 
@@ -1104,7 +1003,6 @@ function InteractiveStackGallery({ list, activeSlot }: { list: Photo[]; activeSl
     }
 
     if (Math.abs(dx) > 54 || Math.abs(dy) > 54) {
-      // 左划 / 上划看下一张，右划 / 下划看上一张
       const dir = dx < -36 || dy < -36 ? 1 : -1;
       stepBy(dir);
     }
@@ -1112,135 +1010,70 @@ function InteractiveStackGallery({ list, activeSlot }: { list: Photo[]; activeSl
   };
 
   return (
-    <div className="flex h-full w-full flex-col justify-between px-safe pb-24 pt-28 sm:pt-32">
-      {/* 3D 叠牌主舞台 */}
-      <div
-        className="relative flex min-h-0 flex-1 items-center justify-center px-6"
-        style={{ perspective: '1200px' }}
-      >
-        {stackCards.map(({ photo, depth }) => {
-          const isTop = depth === 0;
-          // 后排卡片随拖拽进度向前轻微顶进，复刻 react-bits/Stack 物理联动
-          const effectiveDepth = Math.max(0, depth - progress * 0.85);
-          const rotateZ = isTop
-            ? dragOffset.x * 0.04
-            : (depth % 2 === 0 ? -1 : 1) * (effectiveDepth * 2.2);
-          const translateY = isTop ? dragOffset.y : effectiveDepth * 14;
-          const translateX = isTop ? dragOffset.x : (depth % 2 === 0 ? -1 : 1) * effectiveDepth * 8;
-          const translateZ = -effectiveDepth * 42;
-          const scale = 1 - effectiveDepth * 0.055;
-          const opacity = Math.max(0.45, 1 - effectiveDepth * 0.18);
+    <div
+      className="relative flex h-full w-full items-center justify-center px-6 pb-20 pt-14"
+      style={{ perspective: '1200px' }}
+    >
+      {stackCards.map(({ photo, depth }) => {
+        const isTop = depth === 0;
+        const effectiveDepth = Math.max(0, depth - progress * 0.85);
+        const rotateZ = isTop
+          ? dragOffset.x * 0.04
+          : (depth % 2 === 0 ? -1 : 1) * (effectiveDepth * 2.2);
+        const translateY = isTop ? dragOffset.y : effectiveDepth * 14;
+        const translateX = isTop ? dragOffset.x : (depth % 2 === 0 ? -1 : 1) * effectiveDepth * 8;
+        const translateZ = -effectiveDepth * 42;
+        const scale = 1 - effectiveDepth * 0.055;
+        const opacity = Math.max(0.45, 1 - effectiveDepth * 0.18);
 
-          return (
-            <div
-              key={`${photo.id}-${depth}`}
-              onPointerDown={isTop ? onTopPointerDown : undefined}
-              onPointerMove={isTop ? onTopPointerMove : undefined}
-              onPointerUp={isTop ? onTopPointerUp : undefined}
-              onPointerCancel={isTop ? onTopPointerUp : undefined}
-              className="absolute overflow-hidden rounded-2xl border p-1.5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.3)]"
-              style={{
-                width: `min(82vw, ${Math.round(Math.min(460, 340 * photo.aspect))}px)`,
-                aspectRatio: `${photo.w} / ${photo.h}`,
-                maxHeight: '50vh',
-                touchAction: isTop ? 'none' : 'auto',
-                cursor: isTop ? 'grab' : 'default',
-                borderColor: 'var(--border)',
-                backgroundColor: 'var(--surface)',
-                zIndex: 30 - depth,
-                opacity,
-                transform: `translate3d(${translateX.toFixed(1)}px, ${translateY.toFixed(1)}px, ${translateZ.toFixed(1)}px) rotateZ(${rotateZ.toFixed(2)}deg) scale(${scale.toFixed(3)})`,
-                transition:
-                  isTop && dragOffset.dragging
-                    ? 'none'
-                    : 'transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.34s ease',
-              }}
-            >
-              <div
-                className="h-full w-full overflow-hidden rounded-xl"
-                style={{ backgroundColor: photo.color }}
-              >
-                <img
-                  src={depth <= 1 ? photo.full : photo.thumb}
-                  alt={photo.title ?? ''}
-                  decoding="async"
-                  draggable={false}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 底部翻牌控制器与展签 */}
-      {currentPhoto && (
-        <div className="mx-auto w-full max-w-xl px-4 pb-2 sm:px-6">
+        return (
           <div
-            className="flex items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5"
+            key={`${photo.id}-${depth}`}
+            onPointerDown={isTop ? onTopPointerDown : undefined}
+            onPointerMove={isTop ? onTopPointerMove : undefined}
+            onPointerUp={isTop ? onTopPointerUp : undefined}
+            onPointerCancel={isTop ? onTopPointerUp : undefined}
+            className="absolute overflow-hidden rounded-2xl border p-1.5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.3)]"
             style={{
+              width: `min(84vw, ${Math.round(Math.min(480, 360 * photo.aspect))}px)`,
+              aspectRatio: `${photo.w} / ${photo.h}`,
+              maxHeight: '64vh',
+              touchAction: isTop ? 'none' : 'auto',
+              cursor: isTop ? 'grab' : 'default',
               borderColor: 'var(--border)',
               backgroundColor: 'var(--surface)',
+              zIndex: 30 - depth,
+              opacity,
+              transform: `translate3d(${translateX.toFixed(1)}px, ${translateY.toFixed(1)}px, ${translateZ.toFixed(1)}px) rotateZ(${rotateZ.toFixed(2)}deg) scale(${scale.toFixed(3)})`,
+              transition:
+                isTop && dragOffset.dragging
+                  ? 'none'
+                  : 'transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.34s ease',
             }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                stopAutoplay();
-                stepBy(-1);
-              }}
-              aria-label="上一张照片"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors active:scale-95"
-              style={{ borderColor: 'var(--border)', color: 'var(--ink)' }}
+            <div
+              className="h-full w-full overflow-hidden rounded-xl"
+              style={{ backgroundColor: photo.color }}
             >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-            </button>
-
-            <div className="min-w-0 flex-1 text-center">
-              <div className="flex items-center justify-center gap-2 text-[11px] text-[var(--ink-soft)]">
-                <span className="font-display tabular-nums">
-                  {formatFrameNo(activeSlot + 1)} / {formatFrameNo(list.length)}
-                </span>
-                {currentChapter && <span>· {currentChapter.title}</span>}
-              </div>
-              {currentPhoto.title ? (
-                <div className="truncate text-[14.5px] font-semibold text-[var(--ink)]">
-                  {currentPhoto.title}
-                </div>
-              ) : (
-                <div className="text-[12.5px] text-[var(--ink-soft)]">左右划切牌 · 轻点看大图</div>
-              )}
-              {currentPhoto.story && (
-                <p className="mt-0.5 line-clamp-1 text-[12px] text-[var(--ink-soft)]">
-                  {currentPhoto.story}
-                </p>
-              )}
+              <img
+                src={depth <= 1 ? photo.full : photo.thumb}
+                alt=""
+                decoding="async"
+                draggable={false}
+                className="h-full w-full object-cover"
+              />
             </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                stopAutoplay();
-                stepBy(1);
-              }}
-              aria-label="下一张照片"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors active:scale-95"
-              style={{ borderColor: 'var(--border)', color: 'var(--ink)' }}
-            >
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            </button>
           </div>
-        </div>
-      )}
+        );
+      })}
     </div>
   );
 }
 
 /* ============================================================
-   模式三：瑞士瀑布流（Designeer 1px 网格 + React Bits Masonry）
+   模式三：纯图原比例瀑布流（无任何文字与横幅）
    ============================================================ */
 function SwissMasonryGrid({ list }: { list: Photo[] }) {
-  const filter = useAlbumStore((s) => s.filter);
   const lastViewedIndex = useAlbumStore((s) => s.lastViewedIndex);
   const { openLightbox } = useAlbumStore.getState();
 
@@ -1262,7 +1095,6 @@ function SwissMasonryGrid({ list }: { list: Photo[] }) {
 
   const listIndices = useMemo(() => list.map((p) => p.index), [list]);
 
-  // 最短列优先分配，确保双列/多列瀑布流视觉平衡且保持每张图原比例零裁切
   const columns = useMemo(() => {
     const cols: Photo[][] = Array.from({ length: colCount }, () => []);
     const heights = new Array(colCount).fill(0);
@@ -1281,46 +1113,15 @@ function SwissMasonryGrid({ list }: { list: Photo[] }) {
     <div className="h-full w-full overflow-y-auto overscroll-y-contain px-safe">
       <div
         ref={containerRef}
-        className="mx-auto max-w-6xl px-3 pb-28 pt-26 sm:px-6 sm:pt-30"
-        style={{ paddingTop: '6.5rem' }}
+        className="mx-auto max-w-6xl px-2.5 pb-24 pt-16 sm:px-6 sm:pt-20"
       >
-        {/* 全部视图顶部：designeer.xyz 建筑感十字准星档案头卡 */}
-        {filter === 'all' && (
-          <div
-            className="relative mb-5 border p-4 sm:mb-7 sm:p-6"
-            style={{
-              borderColor: 'var(--border)',
-              backgroundColor: 'var(--surface)',
-            }}
-          >
-            <span className="swiss-cross absolute -left-[1px] -top-[1px]" aria-hidden="true" />
-            <span className="swiss-cross absolute -right-[1px] -top-[1px]" aria-hidden="true" />
-            <span className="swiss-cross absolute -bottom-[1px] -left-[1px]" aria-hidden="true" />
-            <span className="swiss-cross absolute -bottom-[1px] -right-[1px]" aria-hidden="true" />
-
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-[var(--ink)] sm:text-[28px]">
-                {couple.groomName} &amp; {couple.brideName}
-              </h1>
-              <span className="font-display text-[12px] text-[var(--ink-soft)] tabular-nums">
-                {couple.date}
-              </span>
-            </div>
-            <p className="mt-1.5 max-w-[60ch] text-[13.5px] leading-relaxed text-[var(--ink-soft)]">
-              {couple.welcomeTitle}
-            </p>
-          </div>
-        )}
-
-        {/* 原比例 Masonry 多列瀑布流（禁止 hover 对 <img> 做任何形变） */}
         <div
-          className="grid gap-2.5 sm:gap-3.5"
+          className="grid gap-2 sm:gap-3"
           style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
         >
           {columns.map((col, colIdx) => (
-            <div key={colIdx} className="flex flex-col gap-2.5 sm:gap-3.5">
+            <div key={colIdx} className="flex flex-col gap-2 sm:gap-3">
               {col.map((photo) => {
-                const ch = chapters[photo.chapter];
                 const isLastViewed = photo.index === lastViewedIndex;
                 return (
                   <button
@@ -1330,15 +1131,11 @@ function SwissMasonryGrid({ list }: { list: Photo[] }) {
                       unlockBgmNow();
                       openLightbox(photo.index, listIndices, false);
                     }}
-                    aria-label={
-                      photo.title
-                        ? `查看大图：${photo.title}`
-                        : `查看第 ${photo.index + 1} 张照片`
-                    }
-                    className="flex flex-col overflow-hidden rounded-xl border text-left transition-colors focus-visible:outline-none focus-visible:ring-2"
+                    aria-label={`查看第 ${photo.index + 1} 张照片`}
+                    className="overflow-hidden rounded-xl border transition-colors focus-visible:outline-none focus-visible:ring-2"
                     style={{
                       borderColor: isLastViewed ? 'var(--ink)' : 'var(--border)',
-                      backgroundColor: 'var(--surface)',
+                      backgroundColor: photo.color,
                     }}
                   >
                     <div
@@ -1350,7 +1147,7 @@ function SwissMasonryGrid({ list }: { list: Photo[] }) {
                     >
                       <img
                         src={photo.thumb}
-                        alt={photo.title ?? ''}
+                        alt=""
                         loading="lazy"
                         decoding="async"
                         draggable={false}
@@ -1359,23 +1156,6 @@ function SwissMasonryGrid({ list }: { list: Photo[] }) {
                         }}
                         className="fade-img h-full w-full object-cover"
                       />
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2 px-2.5 py-2">
-                      <div className="min-w-0 flex-1">
-                        {photo.title ? (
-                          <div className="truncate text-[12.5px] font-medium text-[var(--ink)]">
-                            {photo.title}
-                          </div>
-                        ) : (
-                          <div className="truncate text-[11.5px] text-[var(--ink-soft)]">
-                            {ch?.title ?? '珍藏'}
-                          </div>
-                        )}
-                      </div>
-                      <span className="shrink-0 font-display text-[10.5px] text-[var(--ink-soft)] tabular-nums">
-                        {formatFrameNo(photo.index + 1)}
-                      </span>
                     </div>
                   </button>
                 );
@@ -1406,7 +1186,7 @@ export function PhotoGallery() {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center text-[var(--ink-soft)]">
         <ImageOff className="h-8 w-8 opacity-60" aria-hidden="true" />
-        <p className="text-[14px]">当前筛选下暂无照片，可以切换到「全部」浏览全部瞬间。</p>
+        <p className="text-[14px]">当前分类下暂无照片</p>
       </div>
     );
   }
