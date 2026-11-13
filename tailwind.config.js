@@ -22,9 +22,27 @@ export default {
         grass: '#7fcb5e', // 草地绿
       },
       fontFamily: {
-        // 标题：站酷快乐体（圆润俏皮）+ Fredoka（数字 / 拉丁）
-        display: ['"Fredoka Variable"', '"ZCOOL KuaiLe"', '"PingFang SC"', '"Microsoft YaHei"', 'sans-serif'],
-        fun: ['"ZCOOL KuaiLe"', '"Fredoka Variable"', '"PingFang SC"', '"Microsoft YaHei"', 'sans-serif'],
+        // 人文衬线字体：高定画廊标题、章节与手记
+        serif: [
+          '"Songti SC"',
+          '"Noto Serif SC"',
+          '"STSong"',
+          '"Source Han Serif SC"',
+          '"Playfair Display"',
+          '"Times New Roman"',
+          'serif',
+        ],
+        fun: [
+          '"Songti SC"',
+          '"Noto Serif SC"',
+          '"STSong"',
+          '"Source Han Serif SC"',
+          '"Playfair Display"',
+          '"Times New Roman"',
+          'serif',
+        ],
+        // 编号与刻度：等宽数字与几何无衬线
+        display: ['"Fredoka Variable"', '"PingFang SC"', '"HarmonyOS Sans SC"', 'system-ui', 'sans-serif'],
         sans: [
           '"Fredoka Variable"',
           '"PingFang SC"',

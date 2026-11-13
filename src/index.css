@@ -3,19 +3,19 @@
 @tailwind utilities;
 
 /* ============================================================
-   幸福回忆录 · 全局样式（精装摄影画册）
+   幸福回忆录 · 全局样式（黑曜石暗房 · 3D 弧形胶片转轮剧场）
    移动端优先：撑满安全区、禁用系统双击放大与滚动穿透、隐藏滚动条。
    ============================================================ */
 
 :root {
-  color-scheme: light;
-  --ink: #1e1b2e;
-  --ink-soft: #494361;
-  --paper: #fcfafb;
-  /* 强调色跟着当前章节变（App.tsx 里按章节配色写入） */
-  --accent: #e04f65;
-  --accent-deep: #b9384d;
-  --accent-soft: #ffe3ea;
+  color-scheme: dark;
+  --ink: #f3efea;
+  --ink-soft: #a39e95;
+  --paper: #0b0b0e;
+  /* 强调色默认香槟金，可随当前章节微妙过渡 */
+  --accent: #c8b28e;
+  --accent-deep: #9e8863;
+  --accent-soft: rgba(200, 178, 142, 0.14);
   /* 刘海屏安全区 */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
@@ -40,7 +40,7 @@ body {
   font-family:
     'Fredoka Variable', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
   color: var(--ink);
-  background: #fcfafb;
+  background: #0b0b0e;
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
