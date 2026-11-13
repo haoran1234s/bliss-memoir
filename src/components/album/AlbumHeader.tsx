@@ -10,7 +10,6 @@ import {
   Clapperboard,
   Disc3,
   LayoutGrid,
-  Layers,
   Moon,
   Sun,
   VolumeX,
@@ -175,7 +174,6 @@ export function FloatingDock() {
 
   const items: DockItem[] = [
     { mode: 'arc', label: '3D 环幕', icon: Disc3 },
-    { mode: 'stack', label: '3D 叠片', icon: Layers },
     { mode: 'grid', label: '网格', icon: LayoutGrid },
     ...(videos.length > 0 ? [{ mode: 'videos' as const, label: '影像', icon: Clapperboard }] : []),
   ];
