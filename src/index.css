@@ -1,0 +1,301 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   幸福回忆录 · 全局样式（春日花园派对）
+   移动端优先：撑满安全区、禁用系统缩放与橡皮筋、隐藏滚动条。
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+  --ink: #3a3355;
+  --ink-soft: #6f6890;
+  --paper: #fffbf4;
+  /* 强调色跟着当前章节变（App.tsx 里按章节配色写入） */
+  --accent: #ff7e8a;
+  --accent-deep: #e9596e;
+  --accent-soft: #ffe3ea;
+  /* 刘海屏安全区 */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  /* 关掉「双击放大页面」，点按也不再有 300ms 延迟（画布、看大图等处另设为 none） */
+  touch-action: manipulation;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    'Fredoka Variable', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+  color: var(--ink);
+  background: linear-gradient(180deg, #7cc6f7 0%, #c9e9fd 55%, #fff6e6 100%);
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* 禁止长按选中与系统手势干扰 3D 操作 */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  touch-action: none; /* 手势由我们自己接管，避免浏览器滚动 / 缩放抢事件 */
+  outline: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+img {
+  -webkit-user-drag: none;
+}
+
+/* 隐藏滚动条但保留滚动能力 */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* —— 安全区内边距 —— */
+.pt-safe {
+  padding-top: var(--sat);
+}
+.pb-safe {
+  padding-bottom: var(--sab);
+}
+.px-safe {
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+}
+
+/* —— 白色糖果面板（按钮、导航、面板）——
+   手机上不做背景模糊：压在实时渲染的 3D 画面上，模糊每一帧都要重算，
+   是最耗电的 CSS 效果。电脑上（根节点带 fx-blur）才开磨砂玻璃。 */
+.glass {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 10px 26px -12px rgba(58, 51, 85, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.fx-blur .glass {
+  background: rgba(255, 255, 255, 0.74);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6);
+}
+
+/* 夜晚（关灯观影）用的深色面板 */
+.glass-night {
+  background: rgba(30, 30, 72, 0.8);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 26px -12px rgba(8, 10, 40, 0.6);
+  color: #fff;
+}
+.fx-blur .glass-night {
+  background: rgba(30, 30, 72, 0.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+}
+
+/* 看大图时整屏的奶油色薄纱 */
+.veil {
+  background: rgba(255, 250, 242, 0.96);
+}
+.fx-blur .veil {
+  background: rgba(255, 250, 242, 0.84);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  backdrop-filter: blur(14px) saturate(1.25);
+}
+
+/* —— 糖果按钮：圆滚滚、有厚度，按下去会陷一点 —— */
+.btn-candy {
+  position: relative;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(180deg, #ffa0aa 0%, #ff7e8a 52%, #fb6c82 100%);
+  box-shadow:
+    0 6px 0 #e2566c,
+    0 16px 26px -8px rgba(242, 92, 116, 0.6),
+    inset 0 2px 0 rgba(255, 255, 255, 0.45);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.btn-candy:active {
+  transform: translateY(4px);
+  box-shadow:
+    0 2px 0 #e2566c,
+    0 8px 14px -8px rgba(242, 92, 116, 0.6),
+    inset 0 2px 0 rgba(255, 255, 255, 0.45);
+}
+
+/* 标题字：白字 + 柔和的投影，压在蓝天草地上也清楚 */
+.title-pop {
+  color: #fff;
+  text-shadow:
+    0 2px 0 rgba(58, 51, 85, 0.16),
+    0 8px 22px rgba(58, 51, 85, 0.3);
+}
+
+/* —— 进度滑杆（影院）—— */
+.scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--scrub-fill, #ff7e8a) 0 var(--fill, 0%),
+    var(--scrub-track, rgba(58, 51, 85, 0.16)) var(--fill, 0%) 100%
+  );
+  outline: none;
+  cursor: pointer;
+}
+.scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--scrub-fill, #ff7e8a);
+  box-shadow: 0 2px 6px rgba(58, 51, 85, 0.3);
+}
+.scrubber::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--scrub-fill, #ff7e8a);
+  box-shadow: 0 2px 6px rgba(58, 51, 85, 0.3);
+}
+
+/* —— 相册缩略图：加载完再淡入 —— */
+.fade-img {
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.fade-img[data-loaded] {
+  opacity: 1;
+}
+
+/* —— 加载条上流动的斜纹 —— */
+.candy-stripes {
+  background-image: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.38) 25%,
+    transparent 25% 50%,
+    rgba(255, 255, 255, 0.38) 50% 75%,
+    transparent 75%
+  );
+  background-size: 22px 22px;
+  animation: stripes 0.7s linear infinite;
+}
+@keyframes stripes {
+  to {
+    background-position: 22px 0;
+  }
+}
+
+/* —— 手势提示里那只左右滑的小手 —— */
+@keyframes hand-swipe {
+  0%,
+  100% {
+    transform: translateX(16px) rotate(8deg);
+  }
+  50% {
+    transform: translateX(-16px) rotate(-8deg);
+  }
+}
+.hand-swipe {
+  animation: hand-swipe 1.5s ease-in-out infinite;
+}
+
+/* —— 轻轻跳动的心 —— */
+@keyframes heartbeat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  18% {
+    transform: scale(1.22);
+  }
+  36% {
+    transform: scale(1);
+  }
+  54% {
+    transform: scale(1.14);
+  }
+}
+.heartbeat {
+  animation: heartbeat 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .candy-stripes,
+  .hand-swipe,
+  .heartbeat {
+    animation: none;
+  }
+}
+
+/* 隐藏的媒体元素（银幕视频 / 背景音乐）
+   iOS Safari 会在 <video>「完全不可见」时停止解码，3D 银幕就会变黑。
+   所以保留 2px 的尺寸和极低的不透明度（而不是 opacity:0 / display:none），
+   让系统认为它仍在屏幕里，贴图才会持续更新。 */
+.media-hidden {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 2px;
+  opacity: 0.012;
+  pointer-events: none;
+  z-index: -1;
+}
+/* 平面版（没有 3D）的影院：视频直接放在页面里 */
+.media-hidden.flat-video {
+  position: static;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 1;
+  z-index: auto;
+}
+/* 全屏播放时恢复正常显示 */
+.media-hidden:fullscreen {
+  opacity: 1;
+  pointer-events: auto;
+  background: #000;
+}
+.media-hidden:-webkit-full-screen {
+  opacity: 1;
+  pointer-events: auto;
+  background: #000;
+}

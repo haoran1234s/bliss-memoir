@@ -1,0 +1,40 @@
+{
+  "name": "bliss-memoir",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "幸福回忆录 · Bliss Memoir — 移动端优先的 3D 花园派对式婚礼回忆录",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc -b --noEmit",
+    "photos": "node scripts/build-photos.mjs",
+    "demo:fetch": "node scripts/fetch-demo.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/fredoka": "^5.3.0",
+    "@fontsource/zcool-kuaile": "^5.3.0",
+    "@react-three/drei": "9.114.0",
+    "@react-three/fiber": "8.17.10",
+    "framer-motion": "11.11.17",
+    "lucide-react": "0.454.0",
+    "maath": "0.10.8",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "three": "0.169.0",
+    "zustand": "4.5.5"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@types/three": "0.169.0",
+    "@vitejs/plugin-react": "4.3.3",
+    "autoprefixer": "10.4.20",
+    "postcss": "8.4.47",
+    "sharp": "^0.34.5",
+    "tailwindcss": "3.4.14",
+    "typescript": "5.6.3",
+    "vite": "5.4.10"
+  }
+}

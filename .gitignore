@@ -1,0 +1,26 @@
+# 依赖与构建产物
+node_modules
+dist
+dist-ssr
+*.local
+
+# 日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 编辑器 / 系统
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+node_modules/.tmp
+
+# 临时文件与本地配置
+.demo-cache
+.agents/
+
+# 原始照片素材（已生成至 public/memoir，无需重复入库）
+photos/
