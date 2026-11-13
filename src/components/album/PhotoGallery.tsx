@@ -1,10 +1,10 @@
 /**
- * 纯净照片画廊核心视图（3D 环幕 / 3D 叠片 / 原比例瀑布流）
+ * 纯净照片画廊核心视图（3D Album Rail 扇形环幕 / 3D 叠片 / 原比例瀑布流）
  * ------------------------------------------------------------
  * 彻底去除所有单图对应的文字、编号、故事和顶部横幅文字，专注纯视觉看图体验：
- *   1. arc（3D 环幕，复刻 react-bits/CircularGallery）：
- *      - 纯无框圆角 WebGL 平面 + 滑动速度流体波浪形变（Velocity Wave + Bend Shader）；
- *      - 静止时照片端正锐利、零畸变，轻点中央大图即刻全屏放大；
+ *   1. arc（3D 环幕，复刻 React Bits Album Rail）：
+ *      - 统一圆角方正封套 + 水平 3D 扇形拱桥排布 + 透视折角 + SDF 层叠柔和投影；
+ *      - 单指左右拨动/点击侧翼丝滑环绕切图，轻点中央大图即刻全屏查看完整原比例照片；
  *   2. stack（3D 叠片，复刻 react-bits/Stack）：
  *      - 单手拖拽甩牌切图 + 后排牌实时纵深跟进；
  *   3. grid（原比例瀑布流，复刻 react-bits/Masonry）：
@@ -18,7 +18,7 @@ import type {
 } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ImageOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ImageOff, Pause, Play } from 'lucide-react';
 import { atlas, photos } from '../../data/library';
 import { getDeviceTier } from '../../hooks/useDeviceTier';
 import { unlockBgmNow } from '../../media/bgm';
@@ -54,16 +54,22 @@ function parseHexColor(hex: string): THREE.Color {
   }
 }
 
-function computeArcCardSize(aspect: number, vpWidth: number, vpHeight: number) {
-  const maxW = vpWidth * 0.82;
-  const maxH = vpHeight * 0.6;
+const RAIL_CARD_PAD = 1.22;
+
+/** 计算 Album Rail 统一封套尺寸（保证移动端左右 7 张扇翼完整入画且中心主卡饱满） */
+function computeArcCardSize(vpWidth: number, vpHeight: number) {
+  const isCompactPortrait = vpWidth < vpHeight * 0.92;
+  const cardAspect = isCompactPortrait ? 1 / 1.06 : 1 / 1.02;
+  const maxW = vpWidth * (isCompactPortrait ? 0.5 : 0.44);
+  const maxH = vpHeight * (isCompactPortrait ? 0.44 : 0.48);
+
   let w = maxW;
-  let h = w / Math.max(0.25, aspect);
+  let h = w / cardAspect;
   if (h > maxH) {
     h = maxH;
-    w = h * aspect;
+    w = h * cardAspect;
   }
-  return { w: Math.max(0.55, w), h: Math.max(0.55, h) };
+  return { w: Math.max(0.65, w), h: Math.max(0.65, h) };
 }
 
 interface HiTexEntry {
@@ -191,24 +197,24 @@ class FocusTextureCache {
 }
 
 /* ============================================================
-   模式一：CircularGallery WebGL Shader（无框圆角 + 速度流体波浪）
+   模式一：Album Rail WebGL Shader（圆角封套 + 居中裁切 + SDF 层叠投影）
    ============================================================ */
 const CIRCULAR_VERTEX = /* glsl */ `
   precision highp float;
-  uniform float uBend;
-  uniform float uSpeed;
   uniform vec2 uCardSize;
-  varying vec2 vUv;
+  uniform float uPadFactor;
+  uniform float uSpeed;
+  varying vec2 vLocalPos;
 
   void main() {
-    vUv = uv;
     vec3 pos = position;
-    pos.x *= uCardSize.x;
-    pos.y *= uCardSize.y;
+    pos.x *= uCardSize.x * uPadFactor;
+    pos.y *= uCardSize.y * uPadFactor;
+    vLocalPos = pos.xy;
 
-    float normY = position.y;
-    float wave = sin(uv.x * 3.1415926) * clamp(uSpeed, -1.6, 1.6) * 0.14;
-    pos.z += wave - (normY * normY) * uBend;
+    // 极轻柔的水平甩动空气阻力微弯（静止时绝对平直锐利）
+    float normX = pos.x / max(uCardSize.x * 0.5, 0.01);
+    pos.z -= (normX * normX) * clamp(abs(uSpeed), 0.0, 1.5) * 0.025;
 
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
   }
@@ -222,26 +228,44 @@ const CIRCULAR_FRAGMENT = /* glsl */ `
   uniform sampler2D uDirectTex;
   uniform float uHasDirect;
   uniform vec3 uBaseColor;
-  uniform vec3 uBgColor;
   uniform vec2 uCardSize;
-  uniform float uFocus;
-  uniform float uFade;
+  uniform float uPhotoAspect;
+  uniform float uBrightness;
+  uniform float uCardAlpha;
+  uniform float uShadowStrength;
 
-  varying vec2 vUv;
+  varying vec2 vLocalPos;
 
   void main() {
-    vec2 size = uCardSize;
-    vec2 p = (vUv - 0.5) * size;
-    float radius = min(size.x, size.y) * 0.042;
-    vec2 q = abs(p) - size * 0.5 + radius;
+    vec2 halfSize = uCardSize * 0.5;
+    float radius = min(uCardSize.x, uCardSize.y) * 0.048;
+
+    vec2 q = abs(vLocalPos) - halfSize + radius;
     float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
-    float aa = max(fwidth(sd), 0.0006);
-    float alpha = 1.0 - smoothstep(-aa, aa, sd);
-    if (alpha < 0.02) discard;
 
-    vec2 photoUv = clamp(vUv, 0.0, 1.0);
+    vec2 shadowPos = vLocalPos - vec2(0.0, -uCardSize.y * 0.024);
+    vec2 qs = abs(shadowPos) - halfSize + radius;
+    float sdShadow = length(max(qs, 0.0)) + min(max(qs.x, qs.y), 0.0) - radius;
+    float shadow = exp(-max(sdShadow, 0.0) * 14.5) * uShadowStrength;
+
+    float aa = max(fwidth(sd), 0.0012);
+    float cardMask = 1.0 - smoothstep(-aa, aa, sd);
+    float totalAlpha = max(cardMask, shadow * (1.0 - cardMask)) * uCardAlpha;
+    if (totalAlpha < 0.01) discard;
+
+    // object-cover 居中裁切（竖图微微偏上取景保留人物头部）
+    vec2 photoUv = vLocalPos / uCardSize + 0.5;
+    float cardAspect = uCardSize.x / max(uCardSize.y, 0.001);
+    if (uPhotoAspect > cardAspect) {
+      float scaleX = cardAspect / uPhotoAspect;
+      photoUv.x = (photoUv.x - 0.5) * scaleX + 0.5;
+    } else if (uPhotoAspect < cardAspect) {
+      float scaleY = uPhotoAspect / cardAspect;
+      photoUv.y = (photoUv.y - 0.5) * scaleY + 0.53;
+    }
+    photoUv = clamp(photoUv, 0.002, 0.998);
+
     vec3 col = uBaseColor;
-
     if (uHasAtlas > 0.5) {
       vec2 aUv = vec2(
         uAtlasUv.x + photoUv.x * uAtlasUv.z,
@@ -254,8 +278,13 @@ const CIRCULAR_FRAGMENT = /* glsl */ `
       col = mix(col, dCol, uHasDirect);
     }
 
-    col = mix(uBgColor, col, clamp(uFade, 0.12, 1.0));
-    gl_FragColor = vec4(col, alpha * clamp(0.45 + 0.55 * uFocus, 0.45, 1.0));
+    // 侧翼景深聚光衰减 + 1px 微光边缘切线
+    col *= clamp(uBrightness, 0.35, 1.0);
+    float rim = smoothstep(-0.015, -0.001, sd) * cardMask;
+    col = mix(col, vec3(1.0), rim * (0.04 + 0.1 * uBrightness));
+
+    vec3 outCol = mix(vec3(0.0), col, cardMask);
+    gl_FragColor = vec4(outCol, totalAlpha);
   }
 `;
 
@@ -278,7 +307,7 @@ function ThreeArcContent({
   const { gl, scene, viewport } = useThree();
   const tier = getDeviceTier();
 
-  const cardGeometry = useMemo(() => new THREE.PlaneGeometry(1, 1, 18, 22), []);
+  const cardGeometry = useMemo(() => new THREE.PlaneGeometry(1, 1, 10, 10), []);
   useEffect(() => () => cardGeometry.dispose(), [cardGeometry]);
 
   const dirtyRef = useRef(true);
@@ -334,20 +363,22 @@ function ThreeArcContent({
         vertexShader: CIRCULAR_VERTEX,
         fragmentShader: CIRCULAR_FRAGMENT,
         transparent: true,
-        depthWrite: true,
+        depthWrite: false,
+        depthTest: false,
         uniforms: {
-          uBend: { value: 0.04 },
+          uCardSize: { value: new THREE.Vector2(1.5, 1.56) },
+          uPadFactor: { value: RAIL_CARD_PAD },
           uSpeed: { value: 0 },
-          uCardSize: { value: new THREE.Vector2(1.6, 1.2) },
           uAtlas: { value: null },
           uHasAtlas: { value: 0 },
           uAtlasUv: { value: new THREE.Vector4(0, 0, 1, 1) },
           uDirectTex: { value: null },
           uHasDirect: { value: 0 },
           uBaseColor: { value: new THREE.Color('#e4e4e7') },
-          uBgColor: { value: new THREE.Color('#f6f5f2') },
-          uFocus: { value: 1 },
-          uFade: { value: 1 },
+          uPhotoAspect: { value: 1 },
+          uBrightness: { value: 1 },
+          uCardAlpha: { value: 1 },
+          uShadowStrength: { value: 0.44 },
         },
       });
     });
@@ -420,10 +451,8 @@ function ThreeArcContent({
     }
     atlasStreamer.update(performance.now());
 
-    const radiusY = viewport.height * 0.58;
-    const radiusZ = 1.9;
-    const angleStep = 0.45;
-    const speedBendBoost = Math.min(0.14, Math.abs(smoothSpeedRef.current) * 0.09);
+    const { w, h } = computeArcCardSize(viewport.width, viewport.height);
+    const shadowStrength = theme === 'dark' ? 0.56 : 0.34;
 
     for (let s = 0; s < POOL_SLOTS; s++) {
       const offset = s - VISIBLE_RADIUS;
@@ -439,32 +468,36 @@ function ThreeArcContent({
 
       const photo = list[itemIdx];
       const d = itemIdx - phy.scrollPos;
-      if (Math.abs(d) > VISIBLE_RADIUS + 0.6) {
+      const absD = Math.abs(d);
+      if (absD > VISIBLE_RADIUS + 0.15) {
         mesh.visible = false;
         continue;
       }
 
       mesh.visible = true;
-      const theta = d * angleStep;
 
-      const y = -Math.sin(theta) * radiusY - d * 0.14;
-      const z = -(1 - Math.cos(theta)) * radiusZ - Math.abs(d) * 0.36;
-      const rotX = -theta * 0.72;
+      // Album Rail 3D 水平扇形环绕坐标模型
+      const x = Math.tanh(d * 0.95) * (w * 0.35) + d * (w * 0.165);
+      const y = -Math.pow(absD, 1.35) * (h * 0.052) + h * 0.05;
+      const z = -absD * 0.32 - Math.pow(absD, 1.35) * 0.12;
+      const rotZ = -d * 0.082;
+      const rotY = Math.tanh(d * 0.9) * 0.22 + d * 0.045;
+      const scale = Math.max(0.66, 1 - absD * 0.082);
 
-      mesh.position.set(0, y, z);
-      mesh.rotation.set(rotX, 0, 0);
-
-      const focusFactor = Math.max(0, 1 - Math.abs(d) * 1.15);
-      const scale = 0.88 + 0.12 * focusFactor;
+      mesh.position.set(x, y, z);
+      mesh.rotation.set(0, rotY, rotZ);
       mesh.scale.set(scale, scale, 1);
+      mesh.renderOrder = Math.round((10 - absD) * 100);
 
-      const { w, h } = computeArcCardSize(photo.aspect, viewport.width, viewport.height);
+      const brightness = Math.max(0.38, 1 - absD * 0.175);
+      const cardAlpha = absD <= 3.1 ? 1 : Math.max(0, 1 - (absD - 3.1) / 0.9);
+
       mat.uniforms.uCardSize.value.set(w, h);
-      mat.uniforms.uBend.value = 0.045 * (1 - 0.65 * focusFactor) + speedBendBoost;
       mat.uniforms.uSpeed.value = smoothSpeedRef.current;
-      mat.uniforms.uFocus.value = focusFactor;
-      mat.uniforms.uFade.value = Math.exp(-d * d * 0.28);
-      mat.uniforms.uBgColor.value.copy(bgCurrentRef.current);
+      mat.uniforms.uPhotoAspect.value = Math.max(0.25, photo.aspect);
+      mat.uniforms.uBrightness.value = brightness;
+      mat.uniforms.uCardAlpha.value = cardAlpha;
+      mat.uniforms.uShadowStrength.value = shadowStrength;
       mat.uniforms.uBaseColor.value.copy(parseHexColor(photo.color));
 
       const aTex = atlasStreamer.hi(photo.page) ?? atlasStreamer.lo(photo.page);
@@ -478,7 +511,7 @@ function ThreeArcContent({
         rh / atlas.page,
       );
 
-      const directTex = Math.abs(d) <= 2.6 ? focusCache.getBestTexture(photo.index) : null;
+      const directTex = absD <= 2.6 ? focusCache.getBestTexture(photo.index) : null;
       mat.uniforms.uDirectTex.value = directTex;
       mat.uniforms.uHasDirect.value = directTex ? 1 : 0;
     }
@@ -503,7 +536,7 @@ function ThreeArcContent({
   );
 }
 
-/* CSS 3D 降级环幕 */
+/* CSS 3D 降级 Album Rail 扇形画廊 */
 function CssArcFallback({
   list,
   physicsRef,
@@ -551,7 +584,7 @@ function CssArcFallback({
   return (
     <div
       className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
-      style={{ perspective: '1050px' }}
+      style={{ perspective: '1100px' }}
     >
       <div
         className="relative flex h-full w-full items-center justify-center"
@@ -561,23 +594,25 @@ function CssArcFallback({
           const slot = start + localIdx;
           const d = slot - renderPos;
           const absD = Math.abs(d);
-          const theta = d * 22;
-          const translateY = d * 210;
-          const translateZ = -Math.pow(absD, 1.35) * 130;
-          const fade = Math.max(0.28, Math.exp(-d * d * 0.34));
+          const x = Math.tanh(d * 0.95) * 68 + d * 32;
+          const y = Math.pow(absD, 1.35) * 11 - 12;
+          const z = -absD * 68 - Math.pow(absD, 1.35) * 24;
+          const rotZ = -d * 4.7;
+          const rotY = (Math.tanh(d * 0.9) * 0.22 + d * 0.045) * (180 / Math.PI);
+          const scale = Math.max(0.66, 1 - absD * 0.082);
+          const brightness = Math.max(0.4, 1 - absD * 0.175);
 
           return (
             <div
               key={photo.id}
-              className="absolute overflow-hidden rounded-xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.28)]"
+              className="absolute overflow-hidden rounded-xl shadow-[0_22px_52px_-14px_rgba(0,0,0,0.45)]"
               style={{
-                width: `min(78vw, ${Math.round(Math.min(460, 320 * photo.aspect))}px)`,
-                aspectRatio: `${photo.w} / ${photo.h}`,
-                maxHeight: '56vh',
+                width: 'min(48vw, 290px)',
+                aspectRatio: '1 / 1.05',
                 backgroundColor: photo.color,
-                transform: `translate3d(0px, ${translateY.toFixed(1)}px, ${translateZ.toFixed(1)}px) rotateX(${(-theta).toFixed(2)}deg)`,
-                opacity: fade,
-                zIndex: 20 - Math.round(absD * 4),
+                transform: `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, ${z.toFixed(1)}px) rotateY(${rotY.toFixed(2)}deg) rotateZ(${rotZ.toFixed(2)}deg) scale(${scale.toFixed(3)})`,
+                filter: `brightness(${brightness.toFixed(2)})`,
+                zIndex: 30 - Math.round(absD * 5),
               }}
             >
               <img
@@ -585,7 +620,7 @@ function CssArcFallback({
                 alt=""
                 decoding="async"
                 draggable={false}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover object-top"
               />
             </div>
           );
@@ -595,84 +630,174 @@ function CssArcFallback({
   );
 }
 
-/* 右侧纯视觉刻度快速滑轨（无任何文字气泡） */
-function SwissEdgeScrubber({
+/* 底部 Album Rail 刻度拨盘 + 播放控制条（< | | | | | (▶) | | | | | >，无任何照片文字） */
+const SCRUB_TICKS_PER_SIDE = 7;
+
+function AlbumRailScrubber({
   list,
   activeSlot,
-  onScrubTo,
+  autoplay,
+  physicsRef,
+  onStep,
+  onToggleAutoplay,
+  onScrubDelta,
 }: {
   list: Photo[];
   activeSlot: number;
-  onScrubTo: (slotFloat: number, snap: boolean) => void;
+  autoplay: boolean;
+  physicsRef: MutableRefObject<ReelPhysics>;
+  onStep: (delta: number) => void;
+  onToggleAutoplay: () => void;
+  onScrubDelta: (targetSlot: number, snap: boolean) => void;
 }) {
   const railRef = useRef<HTMLDivElement>(null);
-  const [scrubbing, setScrubbing] = useState(false);
+  const [tickPhase, setTickPhase] = useState(0);
+  const scrubRef = useRef({
+    active: false,
+    pointerId: -1,
+    startX: 0,
+    startScroll: 0,
+    moved: false,
+  });
   const count = list.length;
 
-  const updateFromClientY = useCallback(
-    (clientY: number, snap: boolean) => {
-      const el = railRef.current;
-      if (!el || count <= 1) return;
-      const rect = el.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / Math.max(1, rect.height)));
-      onScrubTo(ratio * (count - 1), snap);
-    },
-    [count, onScrubTo],
-  );
+  useEffect(() => {
+    let raf = 0;
+    let last = -1;
+    const sync = () => {
+      const pos = physicsRef.current.scrollPos;
+      if (Math.abs(pos - last) > 0.008) {
+        last = pos;
+        setTickPhase(pos);
+      }
+      raf = requestAnimationFrame(sync);
+    };
+    raf = requestAnimationFrame(sync);
+    return () => cancelAnimationFrame(raf);
+  }, [physicsRef]);
 
   if (count <= 1) return null;
-  const progress = (activeSlot / Math.max(1, count - 1)) * 100;
 
-  return (
-    <div className="pointer-events-none fixed bottom-24 right-2 top-20 z-20 flex items-center px-safe sm:right-4">
-      <div
-        ref={railRef}
-        role="slider"
-        aria-label="照片快速滚动滑轨"
-        aria-valuemin={1}
-        aria-valuemax={count}
-        aria-valuenow={activeSlot + 1}
-        tabIndex={0}
-        className="pointer-events-auto relative flex h-full w-8 flex-col items-end justify-between py-2 pr-1.5"
-        style={{ touchAction: 'none' }}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          e.currentTarget.setPointerCapture(e.pointerId);
-          setScrubbing(true);
-          updateFromClientY(e.clientY, false);
-        }}
-        onPointerMove={(e) => {
-          if (!scrubbing) return;
-          e.stopPropagation();
-          updateFromClientY(e.clientY, false);
-        }}
-        onPointerUp={(e) => {
-          if (!scrubbing) return;
-          e.stopPropagation();
-          setScrubbing(false);
-          updateFromClientY(e.clientY, true);
-        }}
-        onPointerCancel={() => setScrubbing(false)}
-      >
-        {Array.from({ length: 18 }).map((_, idx) => (
-          <span
-            key={idx}
-            className="block h-[1px]"
-            style={{
-              width: idx % 3 === 0 ? '10px' : '5px',
-              backgroundColor: 'var(--ink-soft)',
-              opacity: idx % 3 === 0 ? 0.5 : 0.22,
-            }}
-          />
-        ))}
+  const progressRatio = activeSlot / Math.max(1, count - 1);
 
+  const onRailPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.stopPropagation();
+    const s = scrubRef.current;
+    s.active = true;
+    s.pointerId = e.pointerId;
+    s.startX = e.clientX;
+    s.startScroll = physicsRef.current.scrollPos;
+    s.moved = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onRailPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const s = scrubRef.current;
+    if (!s.active || s.pointerId !== e.pointerId) return;
+    e.stopPropagation();
+    const dx = e.clientX - s.startX;
+    if (Math.abs(dx) > 4) s.moved = true;
+    const width = Math.max(140, railRef.current?.clientWidth ?? 220);
+    const spanSlots = Math.max(8, Math.min(count - 1, Math.round(count * 0.25)));
+    const nextSlot = s.startScroll + (dx / width) * spanSlots;
+    onScrubDelta(nextSlot, false);
+  };
+
+  const onRailPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const s = scrubRef.current;
+    if (!s.active || s.pointerId !== e.pointerId) return;
+    e.stopPropagation();
+    s.active = false;
+    if (!s.moved && railRef.current) {
+      const rect = railRef.current.getBoundingClientRect();
+      const rel = (e.clientX - rect.left) / Math.max(1, rect.width);
+      onStep(rel < 0.5 ? -1 : 1);
+      return;
+    }
+    const width = Math.max(140, railRef.current?.clientWidth ?? 220);
+    const spanSlots = Math.max(8, Math.min(count - 1, Math.round(count * 0.25)));
+    const nextSlot = s.startScroll + ((e.clientX - s.startX) / width) * spanSlots;
+    onScrubDelta(nextSlot, true);
+  };
+
+  const renderTicks = (side: 'left' | 'right') =>
+    Array.from({ length: SCRUB_TICKS_PER_SIDE }).map((_, idx) => {
+      const globalIdx = side === 'left' ? idx : SCRUB_TICKS_PER_SIDE + idx;
+      const totalTicks = SCRUB_TICKS_PER_SIDE * 2 - 1;
+      const tickNorm = globalIdx / Math.max(1, totalTicks);
+      const isLit = Math.abs(tickNorm - progressRatio) < 0.11;
+      const ripple = Math.sin(tickPhase * 1.4 - globalIdx * 0.75);
+      const heightPx = isLit ? 12 : Math.round(7 + (ripple * 0.5 + 0.5) * 2.5);
+
+      return (
         <span
-          className="pointer-events-none absolute right-0.5 h-3.5 w-1.5 rounded-full transition-[top] duration-75"
+          key={`${side}-${idx}`}
+          className="block w-[1.5px] rounded-full transition-[height,opacity] duration-150"
           style={{
-            top: `calc(${progress}% - 7px)`,
-            backgroundColor: 'var(--ink)',
+            height: `${heightPx}px`,
+            backgroundColor: isLit ? 'var(--ink)' : 'var(--ink-soft)',
+            opacity: isLit ? 0.92 : 0.34,
           }}
         />
+      );
+    });
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-[78px] z-20 flex justify-center px-4 sm:bottom-[92px]">
+      <div
+        ref={railRef}
+        className="pointer-events-auto flex items-center gap-2 rounded-full px-2 py-1 select-none"
+        style={{ touchAction: 'none' }}
+        onPointerDown={onRailPointerDown}
+        onPointerMove={onRailPointerMove}
+        onPointerUp={onRailPointerUp}
+        onPointerCancel={onRailPointerUp}
+      >
+        <button
+          type="button"
+          onClick={() => onStep(-1)}
+          aria-label="上一张照片"
+          className="grid h-7 w-7 place-items-center rounded-full text-[var(--ink-soft)] transition-colors hover:text-[var(--ink)] active:scale-90"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        </button>
+
+        <div className="flex items-center gap-2 sm:gap-2.5" aria-hidden="true">
+          {renderTicks('left')}
+        </div>
+
+        <button
+          type="button"
+          onClick={onToggleAutoplay}
+          aria-label={autoplay ? '暂停自动轮播' : '开启自动轮播'}
+          aria-pressed={autoplay}
+          className="mx-1 grid h-8 w-8 place-items-center rounded-full border shadow-sm transition-transform active:scale-90"
+          style={{
+            backgroundColor: autoplay ? 'var(--ink)' : 'var(--dock-bg)',
+            borderColor: 'var(--border)',
+            color: autoplay ? 'var(--bg)' : 'var(--ink)',
+          }}
+        >
+          {autoplay ? (
+            <Pause className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <Play className="ml-0.5 h-3.5 w-3.5" aria-hidden="true" />
+          )}
+        </button>
+
+        <div className="flex items-center gap-2 sm:gap-2.5" aria-hidden="true">
+          {renderTicks('right')}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onStep(1)}
+          aria-label="下一张照片"
+          className="grid h-7 w-7 place-items-center rounded-full text-[var(--ink-soft)] transition-colors hover:text-[var(--ink)] active:scale-90"
+        >
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </button>
       </div>
     </div>
   );
@@ -681,7 +806,8 @@ function SwissEdgeScrubber({
 function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: number }) {
   const theme = useAlbumStore((s) => s.theme);
   const autoplay = useAlbumStore((s) => s.autoplay);
-  const { setActivePhotoIndex, stopAutoplay, openLightbox } = useAlbumStore.getState();
+  const { setActivePhotoIndex, toggleAutoplay, stopAutoplay, openLightbox } =
+    useAlbumStore.getState();
 
   const listIndices = useMemo(() => list.map((p) => p.index), [list]);
 
@@ -724,19 +850,19 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
       if (phy.dragging) return;
       const next = Math.round(phy.targetPos) + 1;
       phy.targetPos = next >= list.length ? 0 : next;
-    }, 3600);
+    }, 3200);
     return () => window.clearInterval(timer);
   }, [autoplay, list.length]);
 
   const touchRef = useRef({
     active: false,
     pointerId: -1,
-    startY: 0,
-    lastY: 0,
+    startX: 0,
+    lastX: 0,
     lastT: 0,
-    vy: 0,
+    vx: 0,
     startScroll: 0,
-    containerH: 600,
+    containerW: 390,
   });
   const stageRef = useRef<HTMLDivElement>(null);
 
@@ -747,12 +873,12 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
     const t = touchRef.current;
     t.active = true;
     t.pointerId = e.pointerId;
-    t.startY = e.clientY;
-    t.lastY = e.clientY;
+    t.startX = e.clientX;
+    t.lastX = e.clientX;
     t.lastT = e.timeStamp;
-    t.vy = 0;
+    t.vx = 0;
     t.startScroll = phy.scrollPos;
-    t.containerH = Math.max(320, stageRef.current?.clientHeight ?? 600);
+    t.containerW = Math.max(280, stageRef.current?.clientWidth ?? 390);
     phy.dragging = true;
     phy.moved = false;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -761,19 +887,19 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
   const onStagePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const t = touchRef.current;
     if (!t.active || t.pointerId !== e.pointerId) return;
-    const dy = e.clientY - t.startY;
-    if (Math.abs(dy) > 7) physicsRef.current.moved = true;
+    const dx = e.clientX - t.startX;
+    if (Math.abs(dx) > 7) physicsRef.current.moved = true;
 
     const dt = e.timeStamp - t.lastT;
     if (dt > 0) {
-      t.vy = t.vy * 0.45 + ((e.clientY - t.lastY) / dt) * 0.55;
-      t.lastY = e.clientY;
+      t.vx = t.vx * 0.45 + ((e.clientX - t.lastX) / dt) * 0.55;
+      t.lastX = e.clientX;
       t.lastT = e.timeStamp;
     }
 
-    const sensitivity = 1 / Math.max(165, t.containerH * 0.34);
+    const sensitivity = 1 / Math.max(118, t.containerW * 0.28);
     const maxPos = Math.max(0, list.length - 1);
-    const nextPos = Math.max(-0.32, Math.min(maxPos + 0.32, t.startScroll - dy * sensitivity));
+    const nextPos = Math.max(-0.35, Math.min(maxPos + 0.35, t.startScroll - dx * sensitivity));
     physicsRef.current.scrollPos = nextPos;
     physicsRef.current.targetPos = nextPos;
   };
@@ -789,9 +915,9 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
     if (!phy.moved) {
       const rect = stageRef.current?.getBoundingClientRect();
       if (rect && list[activeSlot]) {
-        const relY = (e.clientY - rect.top) / Math.max(1, rect.height);
-        if (relY < 0.25) phy.targetPos = Math.max(0, activeSlot - 1);
-        else if (relY > 0.75) phy.targetPos = Math.min(maxPos, activeSlot + 1);
+        const relX = (e.clientX - (rect.left + rect.width * 0.5)) / Math.max(1, rect.width * 0.5);
+        if (relX < -0.3) phy.targetPos = Math.max(0, activeSlot - 1);
+        else if (relX > 0.3) phy.targetPos = Math.min(maxPos, activeSlot + 1);
         else {
           unlockBgmNow();
           openLightbox(list[activeSlot].index, listIndices, false);
@@ -800,11 +926,11 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
       return;
     }
 
-    const recent = e.timeStamp - t.lastT < 85 ? t.vy : 0;
-    const dyTotal = e.clientY - t.startY;
+    const recent = e.timeStamp - t.lastT < 85 ? t.vx : 0;
+    const dxTotal = e.clientX - t.startX;
     let projected = phy.scrollPos - recent * 3.4;
-    if (Math.abs(dyTotal) > 36 && Math.round(projected) === Math.round(t.startScroll)) {
-      projected = Math.round(t.startScroll) + (dyTotal < 0 ? 1 : -1);
+    if (Math.abs(dxTotal) > 32 && Math.round(projected) === Math.round(t.startScroll)) {
+      projected = Math.round(t.startScroll) + (dxTotal < 0 ? 1 : -1);
     }
     phy.targetPos = Math.max(0, Math.min(maxPos, Math.round(projected)));
   };
@@ -815,9 +941,9 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
     stopAutoplay();
     const now = performance.now();
     if (now < wheelLockRef.current) return;
-    const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    const delta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     wheelAccRef.current += delta;
-    if (Math.abs(wheelAccRef.current) > 34) {
+    if (Math.abs(wheelAccRef.current) > 32) {
       const step = wheelAccRef.current > 0 ? 1 : -1;
       const maxPos = Math.max(0, list.length - 1);
       physicsRef.current.targetPos = Math.max(
@@ -825,9 +951,20 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
         Math.min(maxPos, Math.round(physicsRef.current.targetPos) + step),
       );
       wheelAccRef.current = 0;
-      wheelLockRef.current = now + 95;
+      wheelLockRef.current = now + 90;
     }
   };
+
+  const handleStep = useCallback(
+    (delta: number) => {
+      stopAutoplay();
+      const maxPos = Math.max(0, list.length - 1);
+      const next = Math.max(0, Math.min(maxPos, Math.round(physicsRef.current.targetPos) + delta));
+      physicsRef.current.dragging = false;
+      physicsRef.current.targetPos = next;
+    },
+    [list.length, stopAutoplay],
+  );
 
   const handleDialScrub = useCallback(
     (slotFloat: number, snap: boolean) => {
@@ -847,7 +984,7 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
     <div className="relative h-full w-full overflow-hidden">
       <div
         ref={stageRef}
-        className="absolute inset-0"
+        className="absolute inset-0 cursor-grab active:cursor-grabbing"
         style={{ touchAction: 'none' }}
         onPointerDown={onStagePointerDown}
         onPointerMove={onStagePointerMove}
@@ -882,24 +1019,17 @@ function CircularArcGallery({ list, activeSlot }: { list: Photo[]; activeSlot: n
             onCenterSnapChange={handleCenterSnapChange}
           />
         )}
-
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-20"
-          style={{
-            background: 'linear-gradient(to bottom, var(--bg) 25%, transparent)',
-          }}
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-28"
-          style={{
-            background: 'linear-gradient(to top, var(--bg) 25%, transparent)',
-          }}
-          aria-hidden="true"
-        />
       </div>
 
-      <SwissEdgeScrubber list={list} activeSlot={activeSlot} onScrubTo={handleDialScrub} />
+      <AlbumRailScrubber
+        list={list}
+        activeSlot={activeSlot}
+        autoplay={autoplay}
+        physicsRef={physicsRef}
+        onStep={handleStep}
+        onToggleAutoplay={toggleAutoplay}
+        onScrubDelta={handleDialScrub}
+      />
     </div>
   );
 }
