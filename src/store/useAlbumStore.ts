@@ -1,22 +1,24 @@
 /**
- * 胶片转轮状态中枢（zustand）
+ * 相册查看器状态中枢（zustand）
  * ------------------------------------------------------------
- * 管理 3D 弧形胶片转轮、暗房抽屉、影像放映厅与全屏检视器的离散状态：
- *   - 筛选视图（全部 / 故事手记 / 指定章节）
- *   - 3D 转轮当前定格照片下标与自动巡航开关
- *   - 底片全览抽屉、婚礼影像放映厅、扉页序言浮层开关
- *   - 全屏灯箱当前照片、翻页队列、自动放映开关
- *   - 背景音乐开关与视频有声播放让路状态
+ * 管理 Designeer 瑞士极简网格 × React Bits 三合一视图的全局状态：
+ *   - viewMode: 'arc'（3D 环幕）| 'stack'（3D 叠片）| 'grid'（瑞士瀑布流）| 'videos'（婚礼影像）
+ *   - theme: 'light'（美术馆柔白）| 'dark'（暗房碳黑）
+ *   - filter: 章节与故事筛选（在三大看图模式下全局互通）
+ *   - activePhotoIndex: 当前定位/定格的全局照片下标
+ *   - coverModalOpen / lightboxIndex / autoplay / bgmEnabled / videoPlaying
  */
 import { create } from 'zustand';
 import { chapters, photos } from '../data/library';
 
 export type AlbumFilter = 'all' | 'stories' | 'videos' | number;
+export type ViewMode = 'arc' | 'stack' | 'grid' | 'videos';
+export type ThemeMode = 'light' | 'dark';
 
 const ALL_PHOTO_INDICES = photos.map((p) => p.index);
 const STORY_PHOTO_INDICES = photos.filter((p) => Boolean(p.title ?? p.story)).map((p) => p.index);
 
-/** 计算筛选条件对应的照片全局下标队列 */
+/** 根据筛选条件返回有序的照片全局下标列表 */
 function resolveFilteredList(filter: AlbumFilter): number[] {
   if (filter === 'stories') return STORY_PHOTO_INDICES;
   if (typeof filter === 'number') {
@@ -28,16 +30,14 @@ function resolveFilteredList(filter: AlbumFilter): number[] {
 }
 
 export interface AlbumState {
+  viewMode: ViewMode;
+  theme: ThemeMode;
   filter: AlbumFilter;
-  /** 当前 3D 转轮定格的照片全局下标 */
+  /** 当前中心/定位的全局照片下标 */
   activePhotoIndex: number;
-  /** 3D 转轮自动巡航开关 */
+  /** 3D 环幕或叠片自动巡航开关 */
   autoplay: boolean;
-  /** 35mm 底片全览抽屉开关 */
-  indexDrawerOpen: boolean;
-  /** 婚礼影像暗房放映厅开关 */
-  videoModalOpen: boolean;
-  /** 黑金扉页序言浮层开关 */
+  /** 瑞士档案扉页与索引浮层开关 */
   coverModalOpen: boolean;
   /** 当前在全屏灯箱中查看的照片全局下标；null 表示关闭 */
   lightboxIndex: number | null;
@@ -52,13 +52,13 @@ export interface AlbumState {
   /** 婚礼视频是否正在有声播放（用于背景音乐自动让路） */
   videoPlaying: boolean;
 
+  setViewMode: (mode: ViewMode) => void;
+  toggleTheme: () => void;
   setFilter: (filter: AlbumFilter) => void;
   setActivePhotoIndex: (photoIndex: number) => void;
   stepReel: (delta: number) => void;
   toggleAutoplay: () => void;
   stopAutoplay: () => void;
-  setIndexDrawerOpen: (open: boolean) => void;
-  setVideoModalOpen: (open: boolean) => void;
   setCoverModalOpen: (open: boolean) => void;
   openLightbox: (photoIndex: number, list?: number[], startSlideshow?: boolean) => void;
   closeLightbox: () => void;
@@ -71,11 +71,11 @@ export interface AlbumState {
 }
 
 export const useAlbumStore = create<AlbumState>((set, get) => ({
+  viewMode: 'arc',
+  theme: 'light',
   filter: 'all',
   activePhotoIndex: photos[0]?.index ?? 0,
   autoplay: false,
-  indexDrawerOpen: false,
-  videoModalOpen: false,
   coverModalOpen: false,
   lightboxIndex: null,
   lightboxList: ALL_PHOTO_INDICES,
@@ -84,19 +84,33 @@ export const useAlbumStore = create<AlbumState>((set, get) => ({
   bgmEnabled: true,
   videoPlaying: false,
 
+  setViewMode: (viewMode) => {
+    set({
+      viewMode,
+      autoplay: false,
+      ...(viewMode !== 'videos' ? { videoPlaying: false } : {}),
+    });
+  },
+
+  toggleTheme: () =>
+    set((s) => ({
+      theme: s.theme === 'light' ? 'dark' : 'light',
+    })),
+
   setFilter: (filter) => {
     if (filter === 'videos') {
-      set({ videoModalOpen: true, autoplay: false, slideshow: false });
+      set({ viewMode: 'videos', autoplay: false, slideshow: false });
       return;
     }
     const list = resolveFilteredList(filter);
     const current = get().activePhotoIndex;
     const nextIndex = list.includes(current) ? current : (list[0] ?? 0);
-    set({
+    set((s) => ({
       filter,
       activePhotoIndex: nextIndex,
       slideshow: false,
-    });
+      viewMode: s.viewMode === 'videos' ? 'arc' : s.viewMode,
+    }));
   },
 
   setActivePhotoIndex: (photoIndex) => {
@@ -121,15 +135,6 @@ export const useAlbumStore = create<AlbumState>((set, get) => ({
   stopAutoplay: () => {
     if (get().autoplay) set({ autoplay: false });
   },
-
-  setIndexDrawerOpen: (indexDrawerOpen) =>
-    set({ indexDrawerOpen, ...(indexDrawerOpen ? { autoplay: false } : {}) }),
-
-  setVideoModalOpen: (videoModalOpen) =>
-    set({
-      videoModalOpen,
-      ...(videoModalOpen ? { autoplay: false } : { videoPlaying: false }),
-    }),
 
   setCoverModalOpen: (coverModalOpen) =>
     set({ coverModalOpen, ...(coverModalOpen ? { autoplay: false } : {}) }),

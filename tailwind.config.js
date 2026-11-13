@@ -22,29 +22,26 @@ export default {
         grass: '#7fcb5e', // 草地绿
       },
       fontFamily: {
-        // 人文衬线字体：高定画廊标题、章节与手记
+        // 瑞士国际主义无衬线字体体系 + 等宽数字
         serif: [
-          '"Songti SC"',
-          '"Noto Serif SC"',
-          '"STSong"',
-          '"Source Han Serif SC"',
-          '"Playfair Display"',
-          '"Times New Roman"',
-          'serif',
+          'Inter',
+          '"PingFang SC"',
+          '"HarmonyOS Sans SC"',
+          '"Microsoft YaHei"',
+          'system-ui',
+          'sans-serif',
         ],
         fun: [
-          '"Songti SC"',
-          '"Noto Serif SC"',
-          '"STSong"',
-          '"Source Han Serif SC"',
-          '"Playfair Display"',
-          '"Times New Roman"',
-          'serif',
+          'Inter',
+          '"PingFang SC"',
+          '"HarmonyOS Sans SC"',
+          '"Microsoft YaHei"',
+          'system-ui',
+          'sans-serif',
         ],
-        // 编号与刻度：等宽数字与几何无衬线
-        display: ['"Fredoka Variable"', '"PingFang SC"', '"HarmonyOS Sans SC"', 'system-ui', 'sans-serif'],
+        display: ['"Fredoka Variable"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
         sans: [
-          '"Fredoka Variable"',
+          'Inter',
           '"PingFang SC"',
           '"HarmonyOS Sans SC"',
           '"Microsoft YaHei"',

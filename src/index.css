@@ -3,24 +3,43 @@
 @tailwind utilities;
 
 /* ============================================================
-   幸福回忆录 · 全局样式（黑曜石暗房 · 3D 弧形胶片转轮剧场）
-   移动端优先：撑满安全区、禁用系统双击放大与滚动穿透、隐藏滚动条。
+   幸福回忆录 · 全局样式（Designeer 瑞士极简网格 × React Bits）
+   支持「美术馆柔白 Swiss Paper」与「暗房碳黑 Studio Carbon」双主题。
    ============================================================ */
 
 :root {
-  color-scheme: dark;
-  --ink: #f3efea;
-  --ink-soft: #a39e95;
-  --paper: #0b0b0e;
-  /* 强调色默认香槟金，可随当前章节微妙过渡 */
-  --accent: #c8b28e;
-  --accent-deep: #9e8863;
-  --accent-soft: rgba(200, 178, 142, 0.14);
+  color-scheme: light;
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --surface-muted: #eeede8;
+  --ink: #111113;
+  --ink-soft: #52525b;
+  --border: #e2e1dc;
+  --dock-bg: rgba(255, 255, 255, 0.86);
+  /* 主题强调变量 */
+  --paper: var(--bg);
+  --accent: #111113;
+  --accent-deep: #27272a;
+  --accent-soft: #e4e4e7;
   /* 刘海屏安全区 */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
+}
+
+html.dark {
+  color-scheme: dark;
+  --bg: #0a0a0b;
+  --surface: #141416;
+  --surface-muted: #1c1c1f;
+  --ink: #f4f4f6;
+  --ink-soft: #a1a1aa;
+  --border: #232327;
+  --dock-bg: rgba(20, 20, 22, 0.86);
+  --accent: #f4f4f6;
+  --accent-deep: #d4d4d8;
+  --accent-soft: #27272a;
 }
 
 * {
@@ -38,13 +57,38 @@ body,
 
 body {
   font-family:
-    'Fredoka Variable', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+    Inter, 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
   color: var(--ink);
-  background: #0b0b0e;
+  background: var(--bg);
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   -webkit-touch-callout: none;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* designeer.xyz 建筑网格十字准星（+） */
+.swiss-cross::before,
+.swiss-cross::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  background-color: var(--ink-soft);
+  opacity: 0.45;
+}
+.swiss-cross::before {
+  width: 9px;
+  height: 1px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.swiss-cross::after {
+  width: 1px;
+  height: 9px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 #root {

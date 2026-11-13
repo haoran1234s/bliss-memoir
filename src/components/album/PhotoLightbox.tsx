@@ -116,8 +116,8 @@ function LightboxPhoto({ index, stage, custom, register }: LightboxPhotoProps) {
       <div ref={dragRef} className="h-full w-full will-change-transform">
         <div
           ref={winRef}
-          className="relative h-full w-full overflow-hidden border border-[#c8b28e]/25 shadow-[0_24px_70px_rgba(0,0,0,0.75)]"
-          style={{ backgroundColor: photo.color, borderRadius: '6px' }}
+          className="relative h-full w-full overflow-hidden rounded-lg shadow-[0_24px_70px_rgba(0,0,0,0.65)]"
+          style={{ backgroundColor: photo.color }}
         >
           <div ref={zoomRef} className="absolute inset-0 origin-top-left will-change-transform">
             {thumbOk && (
@@ -625,8 +625,8 @@ export function PhotoLightbox() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18, ease: CALM_EASE }}
     >
-      {/* 沉静黑金暗房背景 */}
-      <div ref={backdropRef} className="absolute inset-0 bg-[#070709]" />
+      {/* 纯净暗房背景 */}
+      <div ref={backdropRef} className="absolute inset-0 bg-[#09090b]" />
 
       {/* 顶栏 */}
       <div
@@ -635,25 +635,22 @@ export function PhotoLightbox() {
         }`}
       >
         <header className="flex items-center justify-between gap-3 px-4 pt-3 sm:px-6">
-          <div
-            className="flex min-w-0 items-center gap-2.5 border border-white/[0.12] bg-[#141418]/90 px-3.5 py-2 text-[13px]"
-            style={{ borderRadius: '8px' }}
-          >
+          <div className="flex min-w-0 items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.08] px-3.5 py-2 text-[13px] backdrop-blur-md">
             <span
               className="h-2 w-2 shrink-0 rounded-full"
               style={{ backgroundColor: palette.accent }}
               aria-hidden="true"
             />
-            <span className="truncate font-serif font-medium text-[#f3efea]">
+            <span className="truncate font-medium text-white">
               {chapter?.title ?? '回忆'}
             </span>
             {chapter && (
-              <span className="shrink-0 font-display text-[11.5px] text-[#c8b28e] tabular-nums">
+              <span className="shrink-0 font-display text-[11.5px] text-zinc-300 tabular-nums">
                 {photo.indexInChapter + 1} / {chapter.count}
               </span>
             )}
             {chapter && listLen > chapter.count && (
-              <span className="hidden shrink-0 font-display text-[11.5px] text-[#a39e95] tabular-nums sm:inline">
+              <span className="hidden shrink-0 font-display text-[11.5px] text-zinc-400 tabular-nums sm:inline">
                 · {posInList + 1} / {listLen}
               </span>
             )}
@@ -665,17 +662,16 @@ export function PhotoLightbox() {
               onClick={toggleButtonZoom}
               aria-label={isZoomed ? '还原照片比例' : '放大照片'}
               title={isZoomed ? '还原 1:1' : '放大细节'}
-              className="inline-flex h-10 items-center gap-1.5 border border-white/[0.12] bg-[#141418]/90 px-3 text-[12.5px] text-[#f3efea] transition-colors hover:border-[#c8b28e]/60 active:scale-95"
-              style={{ borderRadius: '8px' }}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.08] px-3 text-[12.5px] text-white backdrop-blur-md transition-colors hover:bg-white/[0.15] active:scale-95"
             >
               {isZoomed ? (
                 <>
-                  <RotateCcw className="h-3.5 w-3.5 text-[#c8b28e]" aria-hidden="true" />
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="hidden sm:inline">还原</span>
                 </>
               ) : (
                 <>
-                  <ZoomIn className="h-3.5 w-3.5 text-[#c8b28e]" aria-hidden="true" />
+                  <ZoomIn className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="hidden sm:inline">放大</span>
                 </>
               )}
@@ -688,12 +684,11 @@ export function PhotoLightbox() {
                 aria-pressed={slideshow}
                 aria-label={slideshow ? '暂停自动放映' : '开始自动放映'}
                 title={slideshow ? '暂停放映（空格）' : '自动放映（空格）'}
-                className={`inline-flex h-10 items-center gap-1.5 border px-3 text-[12.5px] transition-colors active:scale-95 ${
+                className={`inline-flex h-10 items-center gap-1.5 rounded-full border px-3 text-[12.5px] backdrop-blur-md transition-colors active:scale-95 ${
                   slideshow
-                    ? 'border-[#c8b28e] bg-[#c8b28e] font-medium text-[#11100e]'
-                    : 'border-white/[0.12] bg-[#141418]/90 text-[#f3efea] hover:border-[#c8b28e]/60'
+                    ? 'border-white bg-white font-medium text-zinc-950'
+                    : 'border-white/10 bg-white/[0.08] text-white hover:bg-white/[0.15]'
                 }`}
-                style={{ borderRadius: '8px' }}
               >
                 {slideshow ? (
                   <>
@@ -702,7 +697,7 @@ export function PhotoLightbox() {
                   </>
                 ) : (
                   <>
-                    <Play className="h-3.5 w-3.5 text-[#c8b28e]" fill="currentColor" aria-hidden="true" />
+                    <Play className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true" />
                     <span>放映</span>
                   </>
                 )}
@@ -714,8 +709,7 @@ export function PhotoLightbox() {
               onClick={closeLightbox}
               aria-label="关闭大图查看"
               title="关闭（Esc）"
-              className="grid h-10 w-10 place-items-center border border-white/[0.12] bg-[#141418]/90 text-[#f3efea] transition-colors hover:border-[#c8b28e]/60 active:scale-95"
-              style={{ borderRadius: '8px' }}
+              className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/[0.08] text-white backdrop-blur-md transition-colors hover:bg-white/[0.15] active:scale-95"
             >
               <X className="h-4.5 w-4.5" aria-hidden="true" />
             </button>
@@ -784,17 +778,17 @@ export function PhotoLightbox() {
           {hasMetaText && (
             <div className="max-w-2xl text-center">
               {photo.title && (
-                <div className="font-serif text-[18px] leading-snug tracking-[0.04em] text-[#f3efea]">
+                <div className="text-[17px] font-medium leading-snug text-white">
                   {photo.title}
                 </div>
               )}
               {photo.story && (
-                <p className="mt-1 max-h-[4.8em] overflow-y-auto text-[13px] leading-relaxed text-[#a39e95]">
+                <p className="mt-1 max-h-[4.8em] overflow-y-auto text-[13px] leading-relaxed text-zinc-300">
                   {photo.story}
                 </p>
               )}
               {(photo.place || photo.date) && (
-                <div className="mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-[11.5px] text-[#c8b28e]">
+                <div className="mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-[11.5px] text-zinc-400">
                   {photo.place && (
                     <span className="inline-flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
@@ -832,10 +826,10 @@ export function PhotoLightbox() {
                       }}
                       aria-label={p.title ? `跳到照片：${p.title}` : `跳到第 ${photoIdx + 1} 张照片`}
                       aria-current={active ? 'true' : undefined}
-                      className={`relative h-11 w-11 shrink-0 overflow-hidden transition-opacity duration-150 ${
-                        active ? 'opacity-100 ring-2 ring-[#c8b28e]' : 'opacity-45 hover:opacity-85'
+                      className={`relative h-11 w-11 shrink-0 overflow-hidden rounded-md transition-opacity duration-150 ${
+                        active ? 'opacity-100 ring-2 ring-white' : 'opacity-45 hover:opacity-85'
                       }`}
-                      style={{ backgroundColor: p.color, borderRadius: '4px' }}
+                      style={{ backgroundColor: p.color }}
                     >
                       <img
                         src={p.thumb}

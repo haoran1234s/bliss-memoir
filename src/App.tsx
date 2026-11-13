@@ -1,42 +1,31 @@
 /**
- * 应用装配（黑金 3D 弧形胶片转轮剧场 + 暗房全屏检视器）
+ * 应用装配（Designeer 瑞士极简网格 × React Bits 手机相册）
  * ------------------------------------------------------------
- * 全屏固定零眩晕剧场布局：
- *   - 顶层常驻 HUD 档案栏（AlbumHeader）+ 全屏 3D 弧形胶片转轮（PhotoGallery）；
- *   - 顶层按需浮层：35mm 底片抽屉、婚礼影像放映厅、精装扉页序言、暗房缩放灯箱；
- *   - 统一处理：背景音乐初始化、章节主题变量、键盘上下/左右操作与手机返回键逐层关闭弹窗。
+ *   - 顶栏常驻 AlbumHeader（极简建筑线 + 双主题切换 + 章节横滑条）；
+ *   - 主舞台按 Bottom Dock 的 viewMode 切换 3D 环幕 / 3D 叠片 / 瑞士网格 / 婚礼影像；
+ *   - 底部悬浮 FloatingDock（单手拇指一键切模式）；
+ *   - 顶层浮层：瑞士档案序言弹窗 EditorialCoverModal、全屏放大灯箱 PhotoLightbox；
+ *   - 同步双主题（Swiss Paper / Studio Carbon）、键盘快捷键、手机返回键逐层退避。
  */
 import { useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { AlbumHeader } from './components/album/AlbumHeader';
-import { ContactSheetDrawer, EditorialCoverModal } from './components/album/HeroCover';
+import { AlbumHeader, FloatingDock } from './components/album/AlbumHeader';
+import { EditorialCoverModal } from './components/album/HeroCover';
 import { PhotoGallery } from './components/album/PhotoGallery';
 import { PhotoLightbox } from './components/album/PhotoLightbox';
 import { VideoTheater } from './components/album/VideoTheater';
-import { chapters, photos } from './data/library';
 import { initBgm } from './media/bgm';
 import { useAlbumStore } from './store/useAlbumStore';
-import { DEFAULT_ACCENT, mixHex, paletteOf } from './theme/palettes';
 
-/** 界面 CSS 强调色变量同步（保持香槟金主体与章节数据关联） */
-function useAccentColor() {
-  const chapterIndex = useAlbumStore((s) => {
-    if (s.lightboxIndex !== null) return photos[s.lightboxIndex]?.chapter ?? -1;
-    if (typeof s.filter === 'number') return s.filter;
-    return photos[s.activePhotoIndex]?.chapter ?? -1;
-  });
-
+/** 将日间（Swiss Paper）/ 暗房（Studio Carbon）主题同步到 html.dark 类名 */
+function useThemeSync() {
+  const theme = useAlbumStore((s) => s.theme);
   useEffect(() => {
-    const ch = chapters[chapterIndex];
-    const p = ch ? paletteOf(ch.palette, ch.index) : DEFAULT_ACCENT;
-    const root = document.documentElement.style;
-    root.setProperty('--accent', '#c8b28e');
-    root.setProperty('--accent-deep', mixHex(p.accent, '#121216', 0.45));
-    root.setProperty('--accent-soft', 'rgba(200, 178, 142, 0.14)');
-  }, [chapterIndex]);
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
 }
 
-/** 键盘操作：支持上下左右翻动 3D 转轮、灯箱内部切图与 Esc 逐层关闭浮层 */
+/** 键盘操作：支持上下左右翻页、灯箱缩放与 Esc 关闭浮层 */
 function useKeyboardControls() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -47,7 +36,6 @@ function useKeyboardControls() {
 
       const s = useAlbumStore.getState();
 
-      // 优先处理全屏灯箱快捷键
       if (s.lightboxIndex !== null) {
         if (e.key === 'Escape') {
           e.preventDefault();
@@ -68,23 +56,14 @@ function useKeyboardControls() {
         return;
       }
 
-      // 优先 Esc 关闭当前最上层模态框
-      if (e.key === 'Escape') {
-        if (s.videoModalOpen) {
-          e.preventDefault();
-          s.setVideoModalOpen(false);
-        } else if (s.indexDrawerOpen) {
-          e.preventDefault();
-          s.setIndexDrawerOpen(false);
-        } else if (s.coverModalOpen) {
-          e.preventDefault();
-          s.setCoverModalOpen(false);
-        }
+      if (e.key === 'Escape' && s.coverModalOpen) {
+        e.preventDefault();
+        s.setCoverModalOpen(false);
         return;
       }
 
-      // 主舞台活跃时支持上下/左右键步进 3D 胶片转轮
-      if (s.videoModalOpen || s.indexDrawerOpen || s.coverModalOpen) return;
+      if (s.coverModalOpen || s.viewMode === 'videos' || s.viewMode === 'grid') return;
+
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault();
         s.stopAutoplay();
@@ -105,14 +84,10 @@ function useKeyboardControls() {
   }, []);
 }
 
-/** 手机返回键：打开灯箱、影像放映厅、底片抽屉或序言时拦截返回用于关闭浮层 */
+/** 手机返回键：打开灯箱或序言浮层时拦截一次返回用于关闭 */
 function useOverlayBackButton() {
   const anyOverlayOpen = useAlbumStore(
-    (s) =>
-      s.lightboxIndex !== null ||
-      s.videoModalOpen ||
-      s.indexDrawerOpen ||
-      s.coverModalOpen,
+    (s) => s.lightboxIndex !== null || s.coverModalOpen,
   );
   const pushedRef = useRef(false);
   const ignorePopRef = useRef(0);
@@ -127,8 +102,6 @@ function useOverlayBackButton() {
       pushedRef.current = false;
       const s = useAlbumStore.getState();
       if (s.lightboxIndex !== null) s.closeLightbox();
-      else if (s.videoModalOpen) s.setVideoModalOpen(false);
-      else if (s.indexDrawerOpen) s.setIndexDrawerOpen(false);
       else if (s.coverModalOpen) s.setCoverModalOpen(false);
     };
     window.addEventListener('popstate', onPopState);
@@ -148,32 +121,31 @@ function useOverlayBackButton() {
 }
 
 export default function App() {
+  const viewMode = useAlbumStore((s) => s.viewMode);
   const lightboxOpen = useAlbumStore((s) => s.lightboxIndex !== null);
-  const indexDrawerOpen = useAlbumStore((s) => s.indexDrawerOpen);
-  const videoModalOpen = useAlbumStore((s) => s.videoModalOpen);
   const coverModalOpen = useAlbumStore((s) => s.coverModalOpen);
 
   useEffect(() => initBgm(), []);
-  useAccentColor();
+  useThemeSync();
   useKeyboardControls();
   useOverlayBackButton();
 
-  const overlayActive = lightboxOpen || indexDrawerOpen || videoModalOpen || coverModalOpen;
+  const overlayActive = lightboxOpen || coverModalOpen;
 
   return (
-    <div className="relative h-full w-full select-none overflow-hidden bg-[#0b0b0e] text-[#f3efea]">
-      {/* 顶层极简 HUD 档案导航 */}
+    <div
+      className="relative h-full w-full select-none overflow-hidden"
+      style={{ backgroundColor: 'var(--bg)', color: 'var(--ink)' }}
+    >
       <AlbumHeader />
 
-      {/* 主舞台：3D 弧形胶片转轮剧场 */}
       <main className="h-full w-full" aria-hidden={overlayActive}>
-        <PhotoGallery />
+        {viewMode === 'videos' ? <VideoTheater /> : <PhotoGallery />}
       </main>
 
-      {/* 按需挂载黑金暗房抽屉、放映厅与全屏缩放灯箱 */}
+      <FloatingDock />
+
       <AnimatePresence>
-        {indexDrawerOpen && <ContactSheetDrawer key="contact-sheet" />}
-        {videoModalOpen && <VideoTheater key="video-theater" />}
         {coverModalOpen && <EditorialCoverModal key="editorial-cover" />}
         {lightboxOpen && <PhotoLightbox key="lightbox" />}
       </AnimatePresence>
