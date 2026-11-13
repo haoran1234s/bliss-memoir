@@ -3,18 +3,18 @@
 @tailwind utilities;
 
 /* ============================================================
-   幸福回忆录 · 全局样式（春日花园派对）
-   移动端优先：撑满安全区、禁用系统缩放与橡皮筋、隐藏滚动条。
+   幸福回忆录 · 全局样式（精装摄影画册）
+   移动端优先：撑满安全区、禁用系统双击放大与滚动穿透、隐藏滚动条。
    ============================================================ */
 
 :root {
   color-scheme: light;
-  --ink: #3a3355;
-  --ink-soft: #6f6890;
-  --paper: #fffbf4;
+  --ink: #1e1b2e;
+  --ink-soft: #494361;
+  --paper: #fcfafb;
   /* 强调色跟着当前章节变（App.tsx 里按章节配色写入） */
-  --accent: #ff7e8a;
-  --accent-deep: #e9596e;
+  --accent: #e04f65;
+  --accent-deep: #b9384d;
   --accent-soft: #ffe3ea;
   /* 刘海屏安全区 */
   --sat: env(safe-area-inset-top, 0px);
@@ -40,13 +40,10 @@ body {
   font-family:
     'Fredoka Variable', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
   color: var(--ink);
-  background: linear-gradient(180deg, #7cc6f7 0%, #c9e9fd 55%, #fff6e6 100%);
+  background: #fcfafb;
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* 禁止长按选中与系统手势干扰 3D 操作 */
-  -webkit-user-select: none;
-  user-select: none;
   -webkit-touch-callout: none;
 }
 
@@ -262,6 +259,12 @@ img {
   .hand-swipe,
   .heartbeat {
     animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
