@@ -48,19 +48,6 @@ export function VideoTheater() {
       className="h-full w-full overflow-y-auto overscroll-y-contain px-safe"
     >
       <div className="mx-auto max-w-4xl px-4 pb-28 pt-16 sm:px-6 sm:pt-20">
-        {/* 标题区 */}
-        <div
-          className="mb-4 flex items-baseline justify-between border-b pb-3"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-[var(--ink)] sm:text-[24px]">
-            婚礼影像
-          </h2>
-          <span className="font-display text-[12px] text-[var(--ink-soft)] tabular-nums">
-            共 {videos.length} 段影片
-          </span>
-        </div>
-
         {/* 主播放器 */}
         <div
           className="overflow-hidden rounded-xl border bg-black"
@@ -97,20 +84,8 @@ export function VideoTheater() {
           </div>
         </div>
 
-        <div
-          className="mt-3 border-b pb-4"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          <h3 className="text-[17px] font-semibold text-[var(--ink)]">{currentVideo.title}</h3>
-          {currentVideo.subtitle && (
-            <p className="mt-1 text-[13.5px] leading-relaxed text-[var(--ink-soft)]">
-              {currentVideo.subtitle}
-            </p>
-          )}
-        </div>
-
-        {/* 选片列表（瑞士网格） */}
-        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        {/* 选片列表（瑞士网格，不附加多余文案） */}
+        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
           {videos.map((v, idx) => {
             const active = v.id === currentVideo.id;
             return (
@@ -157,9 +132,6 @@ export function VideoTheater() {
                       {v.title}
                     </span>
                   </div>
-                  <p className="mt-0.5 line-clamp-1 text-[12px] text-[var(--ink-soft)]">
-                    {v.subtitle}
-                  </p>
                 </div>
               </button>
             );

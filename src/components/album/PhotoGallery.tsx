@@ -54,7 +54,7 @@ function parseHexColor(hex: string): THREE.Color {
   }
 }
 
-const RAIL_CARD_PAD = 1.22;
+const RAIL_CARD_PAD = 1.0;
 
 /** 计算 Album Rail 统一封套尺寸（保证移动端左右 7 张扇翼完整入画且中心主卡饱满） */
 function computeArcCardSize(vpWidth: number, vpHeight: number) {
@@ -197,7 +197,7 @@ class FocusTextureCache {
 }
 
 /* ============================================================
-   模式一：Album Rail WebGL Shader（圆角封套 + 居中裁切 + SDF 层叠投影）
+   模式一：Album Rail WebGL Shader（纯净圆角封套 + 居中裁切，无外部阴影）
    ============================================================ */
 const CIRCULAR_VERTEX = /* glsl */ `
   precision highp float;
@@ -232,7 +232,6 @@ const CIRCULAR_FRAGMENT = /* glsl */ `
   uniform float uPhotoAspect;
   uniform float uBrightness;
   uniform float uCardAlpha;
-  uniform float uShadowStrength;
 
   varying vec2 vLocalPos;
 
@@ -243,14 +242,9 @@ const CIRCULAR_FRAGMENT = /* glsl */ `
     vec2 q = abs(vLocalPos) - halfSize + radius;
     float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
 
-    vec2 shadowPos = vLocalPos - vec2(0.0, -uCardSize.y * 0.024);
-    vec2 qs = abs(shadowPos) - halfSize + radius;
-    float sdShadow = length(max(qs, 0.0)) + min(max(qs.x, qs.y), 0.0) - radius;
-    float shadow = exp(-max(sdShadow, 0.0) * 14.5) * uShadowStrength;
-
     float aa = max(fwidth(sd), 0.0012);
     float cardMask = 1.0 - smoothstep(-aa, aa, sd);
-    float totalAlpha = max(cardMask, shadow * (1.0 - cardMask)) * uCardAlpha;
+    float totalAlpha = cardMask * uCardAlpha;
     if (totalAlpha < 0.01) discard;
 
     // object-cover 居中裁切（竖图微微偏上取景保留人物头部）
@@ -281,10 +275,9 @@ const CIRCULAR_FRAGMENT = /* glsl */ `
     // 侧翼景深聚光衰减 + 1px 微光边缘切线
     col *= clamp(uBrightness, 0.35, 1.0);
     float rim = smoothstep(-0.015, -0.001, sd) * cardMask;
-    col = mix(col, vec3(1.0), rim * (0.04 + 0.1 * uBrightness));
+    col = mix(col, vec3(1.0), rim * (0.04 + 0.08 * uBrightness));
 
-    vec3 outCol = mix(vec3(0.0), col, cardMask);
-    gl_FragColor = vec4(outCol, totalAlpha);
+    gl_FragColor = vec4(col, totalAlpha);
   }
 `;
 
@@ -378,7 +371,6 @@ function ThreeArcContent({
           uPhotoAspect: { value: 1 },
           uBrightness: { value: 1 },
           uCardAlpha: { value: 1 },
-          uShadowStrength: { value: 0.44 },
         },
       });
     });
@@ -452,7 +444,6 @@ function ThreeArcContent({
     atlasStreamer.update(performance.now());
 
     const { w, h } = computeArcCardSize(viewport.width, viewport.height);
-    const shadowStrength = theme === 'dark' ? 0.56 : 0.34;
 
     for (let s = 0; s < POOL_SLOTS; s++) {
       const offset = s - VISIBLE_RADIUS;
@@ -497,7 +488,6 @@ function ThreeArcContent({
       mat.uniforms.uPhotoAspect.value = Math.max(0.25, photo.aspect);
       mat.uniforms.uBrightness.value = brightness;
       mat.uniforms.uCardAlpha.value = cardAlpha;
-      mat.uniforms.uShadowStrength.value = shadowStrength;
       mat.uniforms.uBaseColor.value.copy(parseHexColor(photo.color));
 
       const aTex = atlasStreamer.hi(photo.page) ?? atlasStreamer.lo(photo.page);
@@ -605,7 +595,7 @@ function CssArcFallback({
           return (
             <div
               key={photo.id}
-              className="absolute overflow-hidden rounded-xl shadow-[0_22px_52px_-14px_rgba(0,0,0,0.45)]"
+              className="absolute overflow-hidden rounded-xl"
               style={{
                 width: 'min(48vw, 290px)',
                 aspectRatio: '1 / 1.05',

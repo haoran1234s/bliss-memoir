@@ -112,32 +112,25 @@ export const notes: Record<string, PhotoNote> = {
 // 第一段会作为大屏默认播放的片子。posterUrl 是视频加载出来之前显示的封面。
 export const videos: MemoirVideo[] = [
   {
-    id: 'garden',
-    title: '花园漫步',
-    subtitle: '牵着手，走进属于我们的春天',
-    videoUrl: 'memoir/video/garden.mp4',
-    posterUrl: 'memoir/video/garden.jpg',
+    id: 'preview',
+    title: '预告',
+    subtitle: '',
+    videoUrl: 'memoir/video/preview.mp4',
+    posterUrl: 'memoir/video/preview.jpg',
   },
   {
-    id: 'morning',
-    title: '晨间梳妆',
-    subtitle: '清晨的光，和满屋子的期待',
-    videoUrl: 'memoir/video/morning.mp4',
-    posterUrl: 'memoir/video/morning.jpg',
+    id: 'pickup',
+    title: '接亲',
+    subtitle: '',
+    videoUrl: 'memoir/video/pickup.mp4',
+    posterUrl: 'memoir/video/pickup.jpg',
   },
   {
     id: 'ceremony',
-    title: '誓言时刻',
-    subtitle: '我愿意，从此刻到很久很久以后',
+    title: '典礼',
+    subtitle: '',
     videoUrl: 'memoir/video/ceremony.mp4',
     posterUrl: 'memoir/video/ceremony.jpg',
-  },
-  {
-    id: 'proposal',
-    title: '日落与你',
-    subtitle: '还有那只非要入镜的小狗',
-    videoUrl: 'memoir/video/proposal.mp4',
-    posterUrl: 'memoir/video/proposal.jpg',
   },
 ];
 
