@@ -26,7 +26,7 @@ export function EditorialCoverModal() {
   const startAutoTour = () => {
     unlockBgmNow();
     setFilter('all');
-    setViewMode('arc');
+    setViewMode('grid');
     setActivePhotoIndex(photos[0]?.index ?? 0);
     if (!useAlbumStore.getState().autoplay) toggleAutoplay();
     setCoverModalOpen(false);

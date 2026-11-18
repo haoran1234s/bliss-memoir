@@ -8,7 +8,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Clapperboard,
-  Disc3,
   LayoutGrid,
   Moon,
   Sun,
@@ -164,7 +163,7 @@ export function AlbumHeader() {
 interface DockItem {
   mode: ViewMode;
   label: string;
-  icon: typeof Disc3;
+  icon: typeof LayoutGrid;
 }
 
 export function FloatingDock() {
@@ -173,7 +172,6 @@ export function FloatingDock() {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   const items: DockItem[] = [
-    { mode: 'arc', label: '3D 环幕', icon: Disc3 },
     { mode: 'grid', label: '网格', icon: LayoutGrid },
     ...(videos.length > 0 ? [{ mode: 'videos' as const, label: '影像', icon: Clapperboard }] : []),
   ];

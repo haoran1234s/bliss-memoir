@@ -1,8 +1,8 @@
 /**
  * 相册查看器状态中枢（zustand）
  * ------------------------------------------------------------
- * 管理 Designeer 瑞士极简网格 × React Bits 三合一视图的全局状态：
- *   - viewMode: 'arc'（3D 环幕）| 'stack'（3D 叠片）| 'grid'（瑞士瀑布流）| 'videos'（婚礼影像）
+ * 管理 Designeer 瑞士极简网格 × React Bits 视图的全局状态：
+ *   - viewMode: 'grid'（瑞士瀑布流）| 'videos'（婚礼影像）
  *   - theme: 'light'（美术馆柔白）| 'dark'（暗房碳黑）
  *   - filter: 章节与故事筛选（在三大看图模式下全局互通）
  *   - activePhotoIndex: 当前定位/定格的全局照片下标
@@ -12,7 +12,7 @@ import { create } from 'zustand';
 import { chapters, photos } from '../data/library';
 
 export type AlbumFilter = 'all' | 'stories' | 'videos' | number;
-export type ViewMode = 'arc' | 'stack' | 'grid' | 'videos';
+export type ViewMode = 'grid' | 'videos';
 export type ThemeMode = 'light' | 'dark';
 
 const ALL_PHOTO_INDICES = photos.map((p) => p.index);
@@ -71,7 +71,7 @@ export interface AlbumState {
 }
 
 export const useAlbumStore = create<AlbumState>((set, get) => ({
-  viewMode: 'arc',
+  viewMode: 'grid',
   theme: 'light',
   filter: 'all',
   activePhotoIndex: photos[0]?.index ?? 0,
@@ -109,7 +109,7 @@ export const useAlbumStore = create<AlbumState>((set, get) => ({
       filter,
       activePhotoIndex: nextIndex,
       slideshow: false,
-      viewMode: s.viewMode === 'videos' ? 'arc' : s.viewMode,
+      viewMode: s.viewMode === 'videos' ? 'grid' : s.viewMode,
     }));
   },
 
