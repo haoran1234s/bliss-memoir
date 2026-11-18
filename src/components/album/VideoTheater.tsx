@@ -69,7 +69,7 @@ export function VideoTheater() {
                 playsInline
                 webkit-playsinline="true"
                 x5-playsinline="true"
-                preload="auto"
+                preload="metadata"
                 onPlay={syncAudioYield}
                 onPause={syncAudioYield}
                 onEnded={syncAudioYield}

@@ -9,10 +9,7 @@
 /*  一、手写配置（src/data/memoirData.ts）                              */
 /* ------------------------------------------------------------------ */
 
-/** 应用阶段：加载 → 迎宾 → 花园漫游 */
-export type AppPhase = 'loading' | 'prelude' | 'gallery';
-
-/** 章节的气球 / 界面配色主题 */
+/** 章节的配色主题 */
 export type PaletteName = 'blush' | 'pearl' | 'party' | 'ocean' | 'meadow' | 'candy';
 
 export interface CoupleInfo {
@@ -81,17 +78,12 @@ export interface ManifestPhoto {
   h: number;
   /** 主色 #rrggbb */
   col: string;
-  /** 所在图集页 */
-  pg: number;
-  /** 在 2048 图集页里的像素矩形 [x, y, w, h] */
-  r: [number, number, number, number];
   /** 拍摄日期 YYYY-MM-DD（来自 EXIF） */
   d?: string;
 }
 
 export interface Manifest {
   version: number;
-  atlas: { page: number; perPage: number; sizes: number[]; pages: number };
   chapters: Array<{ folder: string; count: number }>;
   photos: ManifestPhoto[];
 }
@@ -112,8 +104,6 @@ export interface Photo {
   h: number;
   aspect: number;
   color: string;
-  page: number;
-  rect: [number, number, number, number];
   thumb: string;
   full: string;
   date?: string;
@@ -127,7 +117,6 @@ export interface Chapter {
   folder: string;
   title: string;
   subtitle: string;
-  palette: PaletteName;
   /** 第一张照片的全局序号 */
   start: number;
   count: number;

@@ -11,17 +11,5 @@ export default defineConfig({
   },
   build: {
     target: 'es2020',
-    chunkSizeWarningLimit: 1600,
-    rollupOptions: {
-      output: {
-        // 把体积较大的三方库拆分，利于移动端增量加载与缓存
-        // maath 被 drei 依赖，必须与 r3f 同组，否则产生循环分包警告
-        manualChunks: {
-          three: ['three'],
-          r3f: ['@react-three/fiber', '@react-three/drei', 'maath'],
-          motion: ['framer-motion'],
-        },
-      },
-    },
   },
 });

@@ -1,26 +1,35 @@
 /**
  * 相册查看器状态中枢（zustand）
  * ------------------------------------------------------------
- * 管理 Designeer 瑞士极简网格 × React Bits 视图的全局状态：
+ * 管理「网格 + 影像」双模式视图的全局状态：
  *   - viewMode: 'grid'（瑞士瀑布流）| 'videos'（婚礼影像）
- *   - theme: 'light'（美术馆柔白）| 'dark'（暗房碳黑）
- *   - filter: 章节与故事筛选（在三大看图模式下全局互通）
- *   - activePhotoIndex: 当前定位/定格的全局照片下标
- *   - coverModalOpen / lightboxIndex / autoplay / bgmEnabled / videoPlaying
+ *   - theme: 'light'（美术馆柔白）| 'dark'（暗房碳黑），持久化至 localStorage
+ *   - filter: 章节筛选（全部 / 各章节）
+ *   - lightboxIndex / slideshow / bgmEnabled / videoPlaying
  */
 import { create } from 'zustand';
 import { chapters, photos } from '../data/library';
 
-export type AlbumFilter = 'all' | 'stories' | 'videos' | number;
+export type AlbumFilter = 'all' | number;
 export type ViewMode = 'grid' | 'videos';
 export type ThemeMode = 'light' | 'dark';
 
+const THEME_STORAGE_KEY = 'bliss-theme';
 const ALL_PHOTO_INDICES = photos.map((p) => p.index);
-const STORY_PHOTO_INDICES = photos.filter((p) => Boolean(p.title ?? p.story)).map((p) => p.index);
+
+function getInitialTheme(): ThemeMode {
+  if (typeof window === 'undefined') return 'light';
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch {
+    /* 隐私模式等场景下忽略 localStorage 读取异常 */
+  }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
 
 /** 根据筛选条件返回有序的照片全局下标列表 */
 function resolveFilteredList(filter: AlbumFilter): number[] {
-  if (filter === 'stories') return STORY_PHOTO_INDICES;
   if (typeof filter === 'number') {
     const ch = chapters[filter];
     if (!ch) return ALL_PHOTO_INDICES;
@@ -33,12 +42,8 @@ export interface AlbumState {
   viewMode: ViewMode;
   theme: ThemeMode;
   filter: AlbumFilter;
-  /** 当前中心/定位的全局照片下标 */
+  /** 当前定位的照片全局下标 */
   activePhotoIndex: number;
-  /** 3D 环幕或叠片自动巡航开关 */
-  autoplay: boolean;
-  /** 瑞士档案扉页与索引浮层开关 */
-  coverModalOpen: boolean;
   /** 当前在全屏灯箱中查看的照片全局下标；null 表示关闭 */
   lightboxIndex: number | null;
   /** 当前灯箱可左右翻阅的照片全局下标列表 */
@@ -56,10 +61,6 @@ export interface AlbumState {
   toggleTheme: () => void;
   setFilter: (filter: AlbumFilter) => void;
   setActivePhotoIndex: (photoIndex: number) => void;
-  stepReel: (delta: number) => void;
-  toggleAutoplay: () => void;
-  stopAutoplay: () => void;
-  setCoverModalOpen: (open: boolean) => void;
   openLightbox: (photoIndex: number, list?: number[], startSlideshow?: boolean) => void;
   closeLightbox: () => void;
   stepLightbox: (delta: number) => void;
@@ -72,11 +73,9 @@ export interface AlbumState {
 
 export const useAlbumStore = create<AlbumState>((set, get) => ({
   viewMode: 'grid',
-  theme: 'light',
+  theme: getInitialTheme(),
   filter: 'all',
   activePhotoIndex: photos[0]?.index ?? 0,
-  autoplay: false,
-  coverModalOpen: false,
   lightboxIndex: null,
   lightboxList: ALL_PHOTO_INDICES,
   lastViewedIndex: null,
@@ -87,21 +86,22 @@ export const useAlbumStore = create<AlbumState>((set, get) => ({
   setViewMode: (viewMode) => {
     set({
       viewMode,
-      autoplay: false,
       ...(viewMode !== 'videos' ? { videoPlaying: false } : {}),
     });
   },
 
   toggleTheme: () =>
-    set((s) => ({
-      theme: s.theme === 'light' ? 'dark' : 'light',
-    })),
+    set((s) => {
+      const next: ThemeMode = s.theme === 'light' ? 'dark' : 'light';
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, next);
+      } catch {
+        /* 忽略存储受限异常 */
+      }
+      return { theme: next };
+    }),
 
   setFilter: (filter) => {
-    if (filter === 'videos') {
-      set({ viewMode: 'videos', autoplay: false, slideshow: false });
-      return;
-    }
     const list = resolveFilteredList(filter);
     const current = get().activePhotoIndex;
     const nextIndex = list.includes(current) ? current : (list[0] ?? 0);
@@ -120,31 +120,11 @@ export const useAlbumStore = create<AlbumState>((set, get) => ({
     }
   },
 
-  stepReel: (delta) => {
-    const { filter, activePhotoIndex } = get();
-    const list = resolveFilteredList(filter);
-    if (list.length === 0) return;
-    const pos = Math.max(0, list.indexOf(activePhotoIndex));
-    const nextPos = (pos + delta + list.length) % list.length;
-    const nextIndex = list[nextPos];
-    set({ activePhotoIndex: nextIndex, lastViewedIndex: nextIndex });
-  },
-
-  toggleAutoplay: () => set((s) => ({ autoplay: !s.autoplay })),
-
-  stopAutoplay: () => {
-    if (get().autoplay) set({ autoplay: false });
-  },
-
-  setCoverModalOpen: (coverModalOpen) =>
-    set({ coverModalOpen, ...(coverModalOpen ? { autoplay: false } : {}) }),
-
   openLightbox: (photoIndex, list, startSlideshow = false) => {
     if (photos.length === 0) return;
     const validList = list && list.length > 0 ? list : ALL_PHOTO_INDICES;
     const target = validList.includes(photoIndex) ? photoIndex : validList[0];
     set({
-      autoplay: false,
       lightboxIndex: target,
       lightboxList: validList,
       lastViewedIndex: target,

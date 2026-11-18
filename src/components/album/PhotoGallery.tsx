@@ -12,6 +12,28 @@ import { useAlbumStore } from '../../store/useAlbumStore';
 import type { Photo } from '../../types';
 import { getFilteredPhotos } from './albumHelpers';
 
+const prefetchedFull = new Set<string>();
+let lightboxPreloaded = false;
+
+function getInitialColCount(): number {
+  if (typeof window === 'undefined') return 2;
+  const w = Math.min(window.innerWidth, 1152);
+  return w >= 960 ? 4 : w >= 640 ? 3 : 2;
+}
+
+/** 悬停或触摸卡片时提前预加载高清图与灯箱代码，缩短点击打开后的等待时间 */
+function prefetchFullPhoto(url: string) {
+  if (!lightboxPreloaded) {
+    lightboxPreloaded = true;
+    void import('./PhotoLightbox');
+  }
+  if (prefetchedFull.has(url)) return;
+  prefetchedFull.add(url);
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = url;
+}
+
 /* ============================================================
    纯图原比例瀑布流（无任何文字与横幅）
    ============================================================ */
@@ -20,7 +42,7 @@ function SwissMasonryGrid({ list }: { list: Photo[] }) {
   const { openLightbox } = useAlbumStore.getState();
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const [colCount, setColCount] = useState(2);
+  const [colCount, setColCount] = useState(getInitialColCount);
 
   useLayoutEffect(() => {
     const el = containerRef.current;
@@ -63,12 +85,15 @@ function SwissMasonryGrid({ list }: { list: Photo[] }) {
         >
           {columns.map((col, colIdx) => (
             <div key={colIdx} className="flex flex-col gap-2 sm:gap-3">
-              {col.map((photo) => {
+              {col.map((photo, rowIdx) => {
                 const isLastViewed = photo.index === lastViewedIndex;
                 return (
                   <button
                     key={photo.id}
                     type="button"
+                    onPointerEnter={() => prefetchFullPhoto(photo.full)}
+                    onTouchStart={() => prefetchFullPhoto(photo.full)}
+                    onFocus={() => prefetchFullPhoto(photo.full)}
                     onClick={() => {
                       unlockBgmNow();
                       openLightbox(photo.index, listIndices, false);
@@ -88,9 +113,15 @@ function SwissMasonryGrid({ list }: { list: Photo[] }) {
                       }}
                     >
                       <img
+                        ref={(el) => {
+                          if (el && el.complete && el.naturalWidth > 0 && !('loaded' in el.dataset)) {
+                            el.dataset.loaded = '';
+                          }
+                        }}
                         src={photo.thumb}
                         alt=""
-                        loading="lazy"
+                        loading={rowIdx < 2 ? 'eager' : 'lazy'}
+                        fetchPriority={rowIdx === 0 ? 'high' : undefined}
                         decoding="async"
                         draggable={false}
                         onLoad={(e) => {

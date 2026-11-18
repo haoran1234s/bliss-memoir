@@ -79,9 +79,10 @@ interface LightboxPhotoProps {
   stage: StageBox;
   custom: SlideCustom;
   register: (els: CardEls | null, index: number) => void;
+  onSettled: (index: number) => void;
 }
 
-function LightboxPhoto({ index, stage, custom, register }: LightboxPhotoProps) {
+function LightboxPhoto({ index, stage, custom, register, onSettled }: LightboxPhotoProps) {
   const photo = photos[index];
   const { pw, ph } = fitPhotoSize(stage, photo.aspect);
   const present = useIsPresent();
@@ -89,9 +90,20 @@ function LightboxPhoto({ index, stage, custom, register }: LightboxPhotoProps) {
   const dragRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<HTMLDivElement>(null);
   const winRef = useRef<HTMLDivElement>(null);
+  const fullImgRef = useRef<HTMLImageElement>(null);
+  const onSettledRef = useRef(onSettled);
+  onSettledRef.current = onSettled;
 
   const [thumbOk, setThumbOk] = useState(true);
   const [fullState, setFullState] = useState<'loading' | 'ready' | 'failed'>('loading');
+
+  useEffect(() => {
+    const el = fullImgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) {
+      setFullState('ready');
+      onSettledRef.current(index);
+    }
+  }, [index]);
 
   useEffect(() => {
     if (!present) return;
@@ -130,12 +142,20 @@ function LightboxPhoto({ index, stage, custom, register }: LightboxPhotoProps) {
             )}
             {fullState !== 'failed' && (
               <img
+                ref={fullImgRef}
                 src={photo.full}
                 alt={photo.title ?? ''}
                 draggable={false}
                 decoding="async"
-                onLoad={() => setFullState('ready')}
-                onError={() => setFullState('failed')}
+                fetchPriority="high"
+                onLoad={() => {
+                  setFullState('ready');
+                  onSettledRef.current(index);
+                }}
+                onError={() => {
+                  setFullState('failed');
+                  onSettledRef.current(index);
+                }}
                 className="absolute inset-0 h-full w-full object-cover transition-opacity duration-200"
                 style={{ opacity: fullState === 'ready' ? 1 : 0 }}
               />
@@ -153,7 +173,7 @@ function LightboxPhoto({ index, stage, custom, register }: LightboxPhotoProps) {
   );
 }
 
-export function PhotoLightbox() {
+function PhotoLightboxInner() {
   const lightboxIndex = useAlbumStore((s) => s.lightboxIndex);
   const lightboxList = useAlbumStore((s) => s.lightboxList);
   const slideshow = useAlbumStore((s) => s.slideshow);
@@ -178,6 +198,10 @@ export function PhotoLightbox() {
 
   const [chromeVisible, setChromeVisible] = useState(true);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [settledIndex, setSettledIndex] = useState<number | null>(null);
+  const handlePhotoSettled = useCallback((settled: number) => {
+    setSettledIndex(settled);
+  }, []);
 
   const prefersReducedMotion =
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -211,9 +235,9 @@ export function PhotoLightbox() {
     return () => ro.disconnect();
   }, []);
 
-  /* —— 后台预加载前后各 2 张高清图 —— */
+  /* —— 当前大图加载完成后再后台预加载前后各 2 张图，避免抢占当前原图带宽 —— */
   useEffect(() => {
-    if (listLen <= 1) return;
+    if (listLen <= 1 || settledIndex !== index) return;
     const preloads: HTMLImageElement[] = [];
     for (const offset of [1, -1, 2, -2]) {
       const targetIdx = lightboxList[(posInList + offset + listLen) % listLen];
@@ -229,7 +253,7 @@ export function PhotoLightbox() {
         img.src = '';
       });
     };
-  }, [posInList, listLen, lightboxList]);
+  }, [posInList, listLen, lightboxList, settledIndex, index]);
 
   /* —— 底部胶片缩略图条自动居中 —— */
   const filmstripRef = useRef<HTMLDivElement>(null);
@@ -689,6 +713,7 @@ export function PhotoLightbox() {
               stage={stage}
               custom={slideCustom}
               register={registerCard}
+              onSettled={handlePhotoSettled}
             />
           </AnimatePresence>
         )}
@@ -775,5 +800,15 @@ export function PhotoLightbox() {
         </footer>
       </div>
     </motion.div>
+  );
+}
+
+export function PhotoLightbox() {
+  const lightboxOpen = useAlbumStore((s) => s.lightboxIndex !== null);
+
+  return (
+    <AnimatePresence>
+      {lightboxOpen && <PhotoLightboxInner key="lightbox" />}
+    </AnimatePresence>
   );
 }

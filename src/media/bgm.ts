@@ -63,6 +63,10 @@ function syncBgmPlayback() {
   const wantPlay = unlocked && !musicFailed && bgmEnabled && !videoPlaying && !document.hidden;
 
   if (wantPlay) {
+    // 首次真正需要播放时再挂载音频地址，避免首屏与缩略图争抢连接
+    if (!audioEl.getAttribute('src')) {
+      audioEl.src = music.url;
+    }
     if (audioEl.paused) {
       audioEl.play().catch(() => void 0);
     }
@@ -91,9 +95,8 @@ export function initBgm(): () => void {
   const audio = document.createElement('audio');
   audio.className = 'media-hidden';
   audio.loop = true;
-  audio.preload = 'metadata';
+  audio.preload = 'none';
   audio.volume = 0;
-  audio.src = music.url;
 
   const onError = () => {
     useBgmStatus.setState({ musicFailed: true });

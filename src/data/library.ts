@@ -2,11 +2,10 @@
  * 照片库
  * ------------------------------------------------------------
  * 把「流水线生成的清单」和「memoirData.ts 里手写的文字」合并成
- * 运行时使用的章节 / 照片列表。界面与 3D 场景都只从这里取数据。
+ * 运行时使用的章节 / 照片列表。
  */
 import manifestJson from './manifest.json';
 import { chapters as chapterMeta, notes, videos as videoList, music as musicInfo } from './memoirData';
-import { PALETTE_ORDER } from '../theme/palettes';
 import type { Chapter, Manifest, MemoirVideo, MusicInfo, Photo } from '../types';
 
 const manifest = manifestJson as unknown as Manifest;
@@ -39,7 +38,6 @@ export const chapters: Chapter[] = [];
       folder: ch.folder,
       title: meta.title ?? prettyFolder(ch.folder),
       subtitle: meta.subtitle ?? '',
-      palette: meta.palette ?? PALETTE_ORDER[index % PALETTE_ORDER.length],
       start,
       count: ch.count,
       cover: start,
@@ -64,8 +62,6 @@ export const photos: Photo[] = manifest.photos.map((p, index) => {
     h: p.h,
     aspect: p.w / Math.max(1, p.h),
     color: p.col,
-    page: p.pg,
-    rect: p.r,
     thumb: asset(`memoir/thumb/${p.id}.webp`),
     full: asset(`memoir/full/${p.id}.webp`),
     date: note.date ?? prettyDate(p.d),
@@ -82,18 +78,6 @@ for (const ch of chapters) {
   const hit = photos.find((p) => p.chapter === ch.index && p.name === want);
   if (hit) ch.cover = hit.index;
 }
-
-/* ------------------------------------------------------------------ */
-/*  图集                                                               */
-/* ------------------------------------------------------------------ */
-export const atlas = {
-  /** 清单里矩形坐标所基于的页面边长 */
-  page: manifest.atlas.page,
-  perPage: manifest.atlas.perPage,
-  pages: manifest.atlas.pages,
-  sizes: manifest.atlas.sizes,
-  url: (size: number, page: number) => asset(`memoir/atlas/${size}/page-${page}.webp`),
-};
 
 /* ------------------------------------------------------------------ */
 /*  影音                                                               */

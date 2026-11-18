@@ -23,7 +23,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    "types": ["vite/client", "@react-three/fiber"]
+    "types": ["vite/client"]
   },
   "include": ["src"]
 }
