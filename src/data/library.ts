@@ -47,9 +47,44 @@ export const chapters: Chapter[] = [];
 }
 
 /* ------------------------------------------------------------------ */
-/*  照片                                                               */
+/*  照片（支持按章节配置的 order 重排）                                  */
 /* ------------------------------------------------------------------ */
-export const photos: Photo[] = manifest.photos.map((p, index) => {
+const orderedManifestPhotos = (() => {
+  const byChapter = new Map<number, typeof manifest.photos>();
+  for (const p of manifest.photos) {
+    const bucket = byChapter.get(p.c);
+    if (bucket) bucket.push(p);
+    else byChapter.set(p.c, [p]);
+  }
+
+  const result: typeof manifest.photos = [];
+  for (const ch of chapters) {
+    const list = byChapter.get(ch.index) ?? [];
+    const customOrder = chapterMeta[ch.folder]?.order;
+    if (!customOrder || customOrder.length === 0) {
+      result.push(...list);
+      continue;
+    }
+
+    const byName = new Map(list.map((p) => [p.f, p]));
+    const picked = new Set<string>();
+    for (const name of customOrder) {
+      if (picked.has(name)) continue;
+      const item = byName.get(name);
+      if (item) {
+        result.push(item);
+        picked.add(name);
+      }
+    }
+    // 未列入 order 的新照片保留在后，防止后续增量运行 npm run photos 时遗漏
+    for (const item of list) {
+      if (!picked.has(item.f)) result.push(item);
+    }
+  }
+  return result;
+})();
+
+export const photos: Photo[] = orderedManifestPhotos.map((p, index) => {
   const chapter = chapters[p.c];
   const note = notes[`${chapter.folder}/${p.f}`] ?? notes[p.f] ?? {};
   return {

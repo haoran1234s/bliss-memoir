@@ -36,6 +36,8 @@ export interface ChapterMeta {
   palette?: PaletteName;
   /** 封面照片的文件名（不带扩展名）。不填则用该章节第一张。 */
   cover?: string;
+  /** 自定义章节内照片显示顺序（文件名列表，不带扩展名）；未列出的照片会按原顺序排在后面。 */
+  order?: string[];
 }
 
 /** 给某一张照片写的小故事。全部可省略。 */

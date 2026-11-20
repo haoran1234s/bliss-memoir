@@ -142,9 +142,10 @@ img {
   touch-action: none;
 }
 
-/* 修正桌面端鼠标指针：未放大时为默认指针（双击/滚轮缩放），放大后为抓手 */
+/* 修正桌面端鼠标指针并允许大图预览时原生 iOS/微信长按呼出保存菜单 */
 .pswp.bliss-pswp .pswp__img {
   cursor: default;
+  -webkit-touch-callout: default;
 }
 .pswp.bliss-pswp.pswp--zoomed-in .pswp__img {
   cursor: grab;

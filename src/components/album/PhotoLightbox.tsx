@@ -15,6 +15,7 @@ import 'photoswipe/style.css';
 import {
   ChevronLeft,
   ChevronRight,
+  Download,
   Pause,
   Play,
   RotateCcw,
@@ -27,6 +28,38 @@ import { useAlbumStore } from '../../store/useAlbumStore';
 import { getPhotoThumbEl } from './albumHelpers';
 
 const SLIDESHOW_INTERVAL_MS = 4000;
+const LONG_PRESS_MS = 580;
+const LONG_PRESS_MOVE_PX = 10;
+
+/** 触发下载指定全局序号的高清照片 */
+function downloadPhoto(photoIdx: number): boolean {
+  const photo = photos[photoIdx];
+  if (!photo || typeof document === 'undefined') return false;
+  const safeName = (photo.name || photo.id).replace(/[\\/:*?"<>|]/g, '_');
+  const link = document.createElement('a');
+  link.href = photo.full;
+  link.download = `${safeName}.webp`;
+  link.rel = 'noopener';
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  return true;
+}
+
+/** 从 PointerEvent / TouchEvent 中读取单指/主指针坐标 */
+function getSinglePointerPoint(ev: Event): { x: number; y: number } | null {
+  if (typeof PointerEvent !== 'undefined' && ev instanceof PointerEvent) {
+    if (!ev.isPrimary) return null;
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return null;
+    return { x: ev.clientX, y: ev.clientY };
+  }
+  if (typeof TouchEvent !== 'undefined' && ev instanceof TouchEvent) {
+    if (ev.touches.length !== 1) return null;
+    return { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+  }
+  return null;
+}
 
 interface LightboxSession {
   id: number;
@@ -70,11 +103,25 @@ function PhotoLightboxSession({ session, closingRequested, onDestroyed }: PhotoL
   const [chromeVisible, setChromeVisible] = useState<boolean>(true);
   const [interactingClose, setInteractingClose] = useState<boolean>(false);
   const [isZoomed, setIsZoomed] = useState<boolean>(false);
+  const [downloadNotice, setDownloadNotice] = useState<boolean>(false);
 
   const pswpRef = useRef<PhotoSwipe | null>(null);
   const hiddenThumbRef = useRef<HTMLElement | null>(null);
+  const noticeTimerRef = useRef<number>(0);
   const onDestroyedRef = useRef(onDestroyed);
   onDestroyedRef.current = onDestroyed;
+
+  const triggerDownload = useCallback((photoIdx: number) => {
+    if (!downloadPhoto(photoIdx)) return;
+    window.clearTimeout(noticeTimerRef.current);
+    setDownloadNotice(true);
+    noticeTimerRef.current = window.setTimeout(() => {
+      noticeTimerRef.current = 0;
+      setDownloadNotice(false);
+    }, 1800);
+  }, []);
+
+  useEffect(() => () => window.clearTimeout(noticeTimerRef.current), []);
 
   const filmstripRef = useRef<HTMLDivElement>(null);
   const stripBtnRefs = useRef(new Map<number, HTMLButtonElement>());
@@ -116,6 +163,17 @@ function PhotoLightboxSession({ session, closingRequested, onDestroyed }: PhotoL
     let lastClickX = 0;
     let lastClickY = 0;
     let clickTimer = 0;
+    let longPressTimer = 0;
+    let longPressStartX = 0;
+    let longPressStartY = 0;
+    let suppressNextTap = false;
+
+    const clearLongPress = () => {
+      if (longPressTimer) {
+        window.clearTimeout(longPressTimer);
+        longPressTimer = 0;
+      }
+    };
 
     const pswp = new PhotoSwipe({
       dataSource,
@@ -150,9 +208,17 @@ function PhotoLightboxSession({ session, closingRequested, onDestroyed }: PhotoL
       preloaderDelay: 400,
       doubleTapAction: 'zoom',
       tapAction: () => {
+        if (suppressNextTap) {
+          suppressNextTap = false;
+          return;
+        }
         setChromeVisible((v) => !v);
       },
       imageClickAction: (pt) => {
+        if (suppressNextTap) {
+          suppressNextTap = false;
+          return;
+        }
         // PhotoSwipe 鼠标点击不触发 doubleTapAction，在此补充 260ms 内鼠标双击定点放大/还原
         const now = performance.now();
         if (now - lastClickTime < 260 && Math.hypot(pt.x - lastClickX, pt.y - lastClickY) < 24) {
@@ -186,6 +252,14 @@ function PhotoLightboxSession({ session, closingRequested, onDestroyed }: PhotoL
           setChromeVisible((v) => !v);
         }
       },
+    });
+
+    pswp.on('bindEvents', () => {
+      if (!pswp.scrollWrap) return;
+      // 系统原生呼出保存菜单（iOS 触发 cancel，Android 触发 contextmenu）时自动取消自定义长按计时，避免重复下载
+      pswp.events.add(pswp.scrollWrap, 'contextmenu', clearLongPress);
+      pswp.events.add(pswp.scrollWrap, 'pointercancel', clearLongPress);
+      pswp.events.add(pswp.scrollWrap, 'touchcancel', clearLongPress);
     });
 
     pswp.on('uiRegister', () => {
@@ -239,24 +313,51 @@ function PhotoLightboxSession({ session, closingRequested, onDestroyed }: PhotoL
       setInteractingClose(bgOpacity < 0.98);
     });
 
-    pswp.on('pointerDown', () => {
+    pswp.on('pointerDown', ({ originalEvent }) => {
       if (useAlbumStore.getState().slideshow) {
         useAlbumStore.getState().stopSlideshow();
+      }
+      suppressNextTap = false;
+      clearLongPress();
+      const target = originalEvent.target as HTMLElement | null;
+      if (!target?.classList?.contains('pswp__img')) return;
+      const pt = getSinglePointerPoint(originalEvent);
+      if (!pt) return;
+      longPressStartX = pt.x;
+      longPressStartY = pt.y;
+      longPressTimer = window.setTimeout(() => {
+        longPressTimer = 0;
+        if (pswp.isDestroying || pswp.opener.isClosing) return;
+        const photoIdx = session.list[pswp.currIndex];
+        if (photoIdx === undefined) return;
+        suppressNextTap = true;
+        triggerDownload(photoIdx);
+      }, LONG_PRESS_MS);
+    });
+
+    pswp.on('pointerMove', ({ originalEvent }) => {
+      if (!longPressTimer) return;
+      const pt = getSinglePointerPoint(originalEvent);
+      if (!pt || Math.hypot(pt.x - longPressStartX, pt.y - longPressStartY) > LONG_PRESS_MOVE_PX) {
+        clearLongPress();
       }
     });
 
     pswp.on('pointerUp', () => {
+      clearLongPress();
       if (!pswp.isDestroying) {
         setInteractingClose(false);
       }
     });
 
     pswp.on('closingAnimationStart', () => {
+      clearLongPress();
       setInteractingClose(true);
     });
 
     pswp.on('destroy', () => {
       window.clearTimeout(clickTimer);
+      clearLongPress();
       setHiddenThumb(null);
       if (pswpRef.current === pswp) {
         pswpRef.current = null;
@@ -276,6 +377,7 @@ function PhotoLightboxSession({ session, closingRequested, onDestroyed }: PhotoL
 
     return () => {
       window.clearTimeout(clickTimer);
+      clearLongPress();
       setHiddenThumb(null);
       if (pswpRef.current === pswp) {
         pswpRef.current = null;
@@ -286,7 +388,7 @@ function PhotoLightboxSession({ session, closingRequested, onDestroyed }: PhotoL
         pswp.destroy();
       }
     };
-  }, [prefersReducedMotion, session, setHiddenThumb]);
+  }, [prefersReducedMotion, session, setHiddenThumb, triggerDownload]);
 
   /* —— 响应外部关闭请求（如手机返回键）：先播放完整缩回原图动画 —— */
   useEffect(() => {
@@ -392,6 +494,18 @@ function PhotoLightboxSession({ session, closingRequested, onDestroyed }: PhotoL
         }`}
       >
         <header className="flex items-center justify-end gap-2 px-4 pt-3 sm:px-6">
+          <button
+            type="button"
+            onClick={() => triggerDownload(activePhotoIdx)}
+            aria-label="下载照片"
+            title="下载照片（也可长按图片保存）"
+            className={`grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/65 active:scale-95 ${
+              showUi ? 'pointer-events-auto' : 'pointer-events-none'
+            }`}
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+          </button>
+
           <button
             type="button"
             onClick={toggleButtonZoom}
@@ -528,6 +642,19 @@ function PhotoLightboxSession({ session, closingRequested, onDestroyed }: PhotoL
             </div>
           )}
         </footer>
+      </div>
+
+      {/* 长按或点击下载后的轻提示 */}
+      <div
+        role="status"
+        aria-live="polite"
+        className={`pointer-events-none fixed inset-x-0 bottom-24 flex justify-center transition-opacity duration-200 ${
+          downloadNotice ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <span className="rounded-full border border-white/15 bg-black/75 px-3.5 py-1.5 text-[12.5px] text-[#f3efea] backdrop-blur-md">
+          已开始下载照片
+        </span>
       </div>
     </div>
   );

@@ -44,6 +44,20 @@ export const chapters: Record<string, ChapterMeta> = {
     title: '婚礼当天',
     subtitle: '所有爱我们的人，都来了',
     palette: 'party',
+    // 按色温、横竖比例与故事节奏打散排列：避免晨袍集中在前排，保持瀑布流视觉平衡
+    order: [
+      'ZXF_5764', 'ZXF_5794', 'ZXF_5330', 'ZXF_5123',
+      'ZXF_5425', 'ZXF_5654', 'ZXF_5833', 'ZXF_5234',
+      'ZXF_5592', 'ZXF_5446', 'ZXF_5154', 'ZXF_5918',
+      'ZXF_5909', 'ZXF_5389', 'ZXF_5756', 'ZXF_5665',
+      'ZXF_5189', 'ZXF_5481', 'ZXF_5919', 'ZXF_5347',
+      'ZXF_5124', 'ZXF_5398', 'ZXF_5880', 'ZXF_5613',
+      'ZXF_5559', 'ZXF_5178', 'ZXF_5897', 'ZXF_5631',
+      'ZXF_5473', 'ZXF_5768', 'ZXF_5983', 'ZXF_5217',
+      'ZXF_5724', 'ZXF_5458', 'ZXF_5373', 'ZXF_5134',
+      'ZXF_5703', 'ZXF_5867', 'ZXF_5212', 'ZXF_5992',
+      'ZXF_5609', 'ZXF_5336', 'ZXF_5130', 'ZXF_5960',
+    ],
   },
   '02-婚纱照': {
     title: '婚纱照',
