@@ -31,41 +31,7 @@ function useThemeSync() {
   }, [theme]);
 }
 
-/** 键盘操作：支持灯箱翻页、幻灯片开关与 Esc 关闭浮层 */
-function useKeyboardControls() {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName;
-      if (tag === 'TEXTAREA' || tag === 'INPUT') return;
-
-      const s = useAlbumStore.getState();
-      if (s.lightboxIndex === null) return;
-
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        s.closeLightbox();
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        s.stopSlideshow();
-        s.stepLightbox(1);
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        s.stopSlideshow();
-        s.stepLightbox(-1);
-      } else if (e.key === ' ') {
-        if (tag === 'BUTTON') return;
-        e.preventDefault();
-        s.toggleSlideshow();
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-}
-
+/** 键盘操作与手机返回键逐层关闭均由各自模块协调：灯箱按键由 PhotoSwipe 内部接管 */
 /** 手机返回键：打开灯箱时拦截一次返回用于关闭 */
 function useOverlayBackButton() {
   const lightboxOpen = useAlbumStore((s) => s.lightboxIndex !== null);
@@ -107,7 +73,6 @@ export default function App() {
 
   useEffect(() => initBgm(), []);
   useThemeSync();
-  useKeyboardControls();
   useOverlayBackButton();
 
   return (

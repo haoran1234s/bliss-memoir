@@ -10,7 +10,7 @@ import { photos } from '../../data/library';
 import { unlockBgmNow } from '../../media/bgm';
 import { useAlbumStore } from '../../store/useAlbumStore';
 import type { Photo } from '../../types';
-import { getFilteredPhotos } from './albumHelpers';
+import { getFilteredPhotos, registerPhotoThumbEl } from './albumHelpers';
 
 const prefetchedFull = new Set<string>();
 let lightboxPreloaded = false;
@@ -114,6 +114,7 @@ function SwissMasonryGrid({ list }: { list: Photo[] }) {
                     >
                       <img
                         ref={(el) => {
+                          registerPhotoThumbEl(photo.index, el);
                           if (el && el.complete && el.naturalWidth > 0 && !('loaded' in el.dataset)) {
                             el.dataset.loaded = '';
                           }

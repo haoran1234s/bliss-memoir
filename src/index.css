@@ -126,3 +126,34 @@ img {
   pointer-events: none;
   z-index: -1;
 }
+
+/* —— PhotoSwipe v5 全屏相册查看器适配（提高优先级防止被懒加载的 photoswipe.css 覆盖） —— */
+.pswp.bliss-pswp {
+  --pswp-bg: #09090b;
+  --pswp-placeholder-bg: transparent;
+  --pswp-error-text-color: #a39e95;
+  --pswp-root-z-index: 50;
+  z-index: 50;
+}
+
+/* 覆盖全局 * { touch-action: manipulation; }，确保移动端双指捏合与跟手拖拽零干扰 */
+.pswp.bliss-pswp,
+.pswp.bliss-pswp * {
+  touch-action: none;
+}
+
+/* 修正桌面端鼠标指针：未放大时为默认指针（双击/滚轮缩放），放大后为抓手 */
+.pswp.bliss-pswp .pswp__img {
+  cursor: default;
+}
+.pswp.bliss-pswp.pswp--zoomed-in .pswp__img {
+  cursor: grab;
+}
+.pswp.bliss-pswp.pswp--zoomed-in .pswp__img:active {
+  cursor: grabbing;
+}
+
+.pswp.bliss-pswp .pswp__error-msg {
+  font-size: 13px;
+  color: #a39e95;
+}
