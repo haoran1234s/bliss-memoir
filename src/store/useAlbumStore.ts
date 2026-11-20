@@ -4,18 +4,19 @@
  * 管理「网格 + 影像」双模式视图的全局状态：
  *   - viewMode: 'grid'（瑞士瀑布流）| 'videos'（婚礼影像）
  *   - theme: 'light'（美术馆柔白）| 'dark'（暗房碳黑），持久化至 localStorage
- *   - filter: 章节筛选（全部 / 各章节）
+ *   - filter: 章节筛选（各章节，默认选中首个分类）
  *   - lightboxIndex / slideshow / bgmEnabled / videoPlaying
  */
 import { create } from 'zustand';
 import { chapters, photos } from '../data/library';
 
-export type AlbumFilter = 'all' | number;
+export type AlbumFilter = number;
 export type ViewMode = 'grid' | 'videos';
 export type ThemeMode = 'light' | 'dark';
 
 const THEME_STORAGE_KEY = 'bliss-theme';
 const ALL_PHOTO_INDICES = photos.map((p) => p.index);
+const DEFAULT_FILTER: AlbumFilter = chapters[0]?.index ?? 0;
 
 function getInitialTheme(): ThemeMode {
   if (typeof window === 'undefined') return 'light';
@@ -30,13 +31,12 @@ function getInitialTheme(): ThemeMode {
 
 /** 根据筛选条件返回有序的照片全局下标列表 */
 function resolveFilteredList(filter: AlbumFilter): number[] {
-  if (typeof filter === 'number') {
-    const ch = chapters[filter];
-    if (!ch) return ALL_PHOTO_INDICES;
-    return photos.slice(ch.start, ch.start + ch.count).map((p) => p.index);
-  }
-  return ALL_PHOTO_INDICES;
+  const ch = chapters[filter];
+  if (!ch) return ALL_PHOTO_INDICES;
+  return photos.slice(ch.start, ch.start + ch.count).map((p) => p.index);
 }
+
+const DEFAULT_FILTERED_INDICES = resolveFilteredList(DEFAULT_FILTER);
 
 export interface AlbumState {
   viewMode: ViewMode;
@@ -74,10 +74,10 @@ export interface AlbumState {
 export const useAlbumStore = create<AlbumState>((set, get) => ({
   viewMode: 'grid',
   theme: getInitialTheme(),
-  filter: 'all',
-  activePhotoIndex: photos[0]?.index ?? 0,
+  filter: DEFAULT_FILTER,
+  activePhotoIndex: DEFAULT_FILTERED_INDICES[0] ?? 0,
   lightboxIndex: null,
-  lightboxList: ALL_PHOTO_INDICES,
+  lightboxList: DEFAULT_FILTERED_INDICES,
   lastViewedIndex: null,
   slideshow: false,
   bgmEnabled: true,

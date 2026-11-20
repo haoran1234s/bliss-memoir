@@ -40,35 +40,15 @@ export const couple: CoupleInfo = {
 // 标题默认取文件夹名（自动去掉前面的数字序号），配色按顺序轮流分配。
 // palette 可选：blush 蜜桃粉 | pearl 珍珠香槟 | party 彩虹派对 | ocean 海盐蓝 | meadow 青草绿 | candy 糖果紫
 export const chapters: Record<string, ChapterMeta> = {
-  '01-求婚': {
-    title: '求婚',
-    subtitle: '那天风很轻，我说了这辈子最勇敢的一句话',
-    palette: 'blush',
-  },
-  '02-婚纱照': {
+  '01-婚纱照': {
     title: '婚纱照',
     subtitle: '白纱很美，但你看我的眼神更美',
     palette: 'pearl',
   },
-  '03-婚礼当天': {
+  '02-婚礼当天': {
     title: '婚礼当天',
     subtitle: '所有爱我们的人，都来了',
     palette: 'party',
-  },
-  '04-蜜月旅行': {
-    title: '蜜月旅行',
-    subtitle: '世界很大，想和你一起慢慢逛',
-    palette: 'ocean',
-  },
-  '05-山野与远方': {
-    title: '山野与远方',
-    subtitle: '走过的每一段路，都算数',
-    palette: 'meadow',
-  },
-  '06-小日子': {
-    title: '小日子',
-    subtitle: '柴米油盐，也闪闪发光',
-    palette: 'candy',
   },
 };
 

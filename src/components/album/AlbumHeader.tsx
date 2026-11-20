@@ -1,7 +1,7 @@
 /**
  * 极简分类顶栏 + 底部悬浮 Dock
  * ------------------------------------------------------------
- *   1. AlbumHeader：仅保留一行纯净分类切换栏（全部 / 各章节）与日夜/音乐纯图标开关，
+ *   1. AlbumHeader：仅保留一行纯净分类切换栏（各章节）与日夜/音乐纯图标开关，
  *      彻底移除姓名、计数与多余按钮文字；
  *   2. FloatingDock：复刻 DavidHDev/react-bits 的底部悬浮交互 Dock。
  */
@@ -58,22 +58,6 @@ export function AlbumHeader() {
             aria-label="照片分类"
             className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1"
           >
-            <button
-              type="button"
-              ref={(el) => {
-                if (el) tabRefs.current.set('all', el);
-                else tabRefs.current.delete('all');
-              }}
-              onClick={() => setFilter('all')}
-              className="inline-flex h-8 shrink-0 items-center rounded-full px-3.5 text-[13px] font-medium transition-colors"
-              style={{
-                backgroundColor: filter === 'all' ? 'var(--ink)' : 'transparent',
-                color: filter === 'all' ? 'var(--bg)' : 'var(--ink-soft)',
-              }}
-            >
-              全部
-            </button>
-
             {chapters.map((ch) => {
               const active = filter === ch.index;
               return (
