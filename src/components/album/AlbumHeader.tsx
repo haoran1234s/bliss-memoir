@@ -1,7 +1,7 @@
 /**
  * 极简分类顶栏 + 底部悬浮 Dock
  * ------------------------------------------------------------
- *   1. AlbumHeader：仅保留一行纯净分类切换栏（各章节）与日夜/音乐纯图标开关，
+ *   1. AlbumHeader：仅保留一行纯净分类切换栏（各章节）与日夜纯图标开关，
  *      彻底移除姓名、计数与多余按钮文字；
  *   2. FloatingDock：复刻 DavidHDev/react-bits 的底部悬浮交互 Dock。
  */
@@ -11,20 +11,16 @@ import {
   LayoutGrid,
   Moon,
   Sun,
-  VolumeX,
 } from 'lucide-react';
 import { chapters, videos } from '../../data/library';
-import { unlockBgmNow, useBgmStatus } from '../../media/bgm';
 import { useAlbumStore, type AlbumFilter, type ViewMode } from '../../store/useAlbumStore';
 
 export function AlbumHeader() {
   const viewMode = useAlbumStore((s) => s.viewMode);
   const theme = useAlbumStore((s) => s.theme);
   const filter = useAlbumStore((s) => s.filter);
-  const bgmEnabled = useAlbumStore((s) => s.bgmEnabled);
-  const musicFailed = useBgmStatus((s) => s.musicFailed);
 
-  const { setFilter, toggleTheme, toggleBgm } = useAlbumStore.getState();
+  const { setFilter, toggleTheme } = useAlbumStore.getState();
 
   const tabRowRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef(new Map<AlbumFilter, HTMLButtonElement>());
@@ -36,11 +32,6 @@ export function AlbumHeader() {
     const targetLeft = btn.offsetLeft - (row.clientWidth - btn.offsetWidth) / 2;
     row.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
   }, [filter]);
-
-  const onToggleMusic = () => {
-    if (!bgmEnabled) unlockBgmNow();
-    toggleBgm();
-  };
 
   return (
     <header
@@ -103,36 +94,6 @@ export function AlbumHeader() {
               <Moon className="h-3.5 w-3.5" aria-hidden="true" />
             ) : (
               <Sun className="h-3.5 w-3.5" aria-hidden="true" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={onToggleMusic}
-            disabled={musicFailed}
-            aria-label={bgmEnabled && !musicFailed ? '关闭背景音乐' : '开启背景音乐'}
-            aria-pressed={bgmEnabled && !musicFailed}
-            className="grid h-8 w-8 place-items-center rounded-full border transition-colors active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-            style={{
-              borderColor: bgmEnabled && !musicFailed ? 'var(--ink)' : 'var(--border)',
-              backgroundColor: bgmEnabled && !musicFailed ? 'var(--ink)' : 'var(--surface)',
-              color: bgmEnabled && !musicFailed ? 'var(--bg)' : 'var(--ink-soft)',
-            }}
-          >
-            {bgmEnabled && !musicFailed ? (
-              <span className="flex h-3 items-end gap-[2px]" aria-hidden="true">
-                <span className="h-1.5 w-[2px] animate-pulse bg-current" />
-                <span
-                  className="h-3 w-[2px] animate-pulse bg-current"
-                  style={{ animationDelay: '180ms' }}
-                />
-                <span
-                  className="h-2 w-[2px] animate-pulse bg-current"
-                  style={{ animationDelay: '360ms' }}
-                />
-              </span>
-            ) : (
-              <VolumeX className="h-3.5 w-3.5" aria-hidden="true" />
             )}
           </button>
         </div>

@@ -5,8 +5,8 @@
  * 运行时使用的章节 / 照片列表。
  */
 import manifestJson from './manifest.json';
-import { chapters as chapterMeta, notes, videos as videoList, music as musicInfo } from './memoirData';
-import type { Chapter, Manifest, MemoirVideo, MusicInfo, Photo } from '../types';
+import { chapters as chapterMeta, notes, videos as videoList } from './memoirData';
+import type { Chapter, Manifest, MemoirVideo, Photo } from '../types';
 
 const manifest = manifestJson as unknown as Manifest;
 
@@ -122,7 +122,5 @@ export const videos: MemoirVideo[] = videoList.map((v) => ({
   videoUrl: asset(v.videoUrl),
   posterUrl: asset(v.posterUrl),
 }));
-
-export const music: MusicInfo = { ...musicInfo, url: asset(musicInfo.url) };
 
 export const hasPhotos = photos.length > 0;

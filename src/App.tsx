@@ -10,7 +10,6 @@
 import { Suspense, lazy, useEffect, useRef } from 'react';
 import { AlbumHeader, FloatingDock } from './components/album/AlbumHeader';
 import { PhotoGallery } from './components/album/PhotoGallery';
-import { initBgm } from './media/bgm';
 import { useAlbumStore } from './store/useAlbumStore';
 
 const LazyVideoTheater = lazy(() =>
@@ -71,7 +70,6 @@ export default function App() {
   const everOpenedLightboxRef = useRef(false);
   if (lightboxOpen) everOpenedLightboxRef.current = true;
 
-  useEffect(() => initBgm(), []);
   useThemeSync();
   useOverlayBackButton();
 

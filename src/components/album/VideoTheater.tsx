@@ -3,33 +3,18 @@
  * ------------------------------------------------------------
  * 当底部 Dock 切换到「影像」时直接呈现：
  *   - 上方 16:9 原生 <video> 播放器（720p faststart MP4，支持手机端 iOS/微信内联秒开）；
- *   - 下方 Designeer 风格裸露细线选片网格；
- *   - 有声播放时自动让背景音乐渐隐，切出或关闭时恢复。
+ *   - 下方 Designeer 风格裸露细线选片网格。
  */
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Play, VideoOff } from 'lucide-react';
 import { videos } from '../../data/library';
-import { useAlbumStore } from '../../store/useAlbumStore';
 
 export function VideoTheater() {
-  const setVideoPlaying = useAlbumStore((s) => s.setVideoPlaying);
   const [selectedId, setSelectedId] = useState<string>(videos[0]?.id ?? '');
   const [failedId, setFailedId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const currentVideo = videos.find((v) => v.id === selectedId) ?? videos[0];
-
-  const syncAudioYield = () => {
-    const el = videoRef.current;
-    if (!el) return;
-    setVideoPlaying(!el.paused && !el.ended && !el.muted);
-  };
-
-  useEffect(() => {
-    return () => {
-      useAlbumStore.getState().setVideoPlaying(false);
-    };
-  }, []);
 
   if (videos.length === 0 || !currentVideo) return null;
 
@@ -39,7 +24,6 @@ export function VideoTheater() {
     if (id === currentVideo.id) return;
     setFailedId(null);
     setSelectedId(id);
-    setVideoPlaying(false);
   };
 
   return (
@@ -70,13 +54,8 @@ export function VideoTheater() {
                 webkit-playsinline="true"
                 x5-playsinline="true"
                 preload="metadata"
-                onPlay={syncAudioYield}
-                onPause={syncAudioYield}
-                onEnded={syncAudioYield}
-                onVolumeChange={syncAudioYield}
                 onError={() => {
                   setFailedId(currentVideo.id);
-                  setVideoPlaying(false);
                 }}
                 className="h-full w-full object-contain"
               />

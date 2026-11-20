@@ -7,7 +7,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ImageOff } from 'lucide-react';
 import { photos } from '../../data/library';
-import { unlockBgmNow } from '../../media/bgm';
 import { useAlbumStore } from '../../store/useAlbumStore';
 import type { Photo } from '../../types';
 import { getFilteredPhotos, registerPhotoThumbEl } from './albumHelpers';
@@ -95,7 +94,6 @@ function SwissMasonryGrid({ list }: { list: Photo[] }) {
                     onTouchStart={() => prefetchFullPhoto(photo.full)}
                     onFocus={() => prefetchFullPhoto(photo.full)}
                     onClick={() => {
-                      unlockBgmNow();
                       openLightbox(photo.index, listIndices, false);
                     }}
                     aria-label={`查看第 ${photo.index + 1} 张照片`}

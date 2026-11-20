@@ -5,7 +5,7 @@
  *   - viewMode: 'grid'（瑞士瀑布流）| 'videos'（婚礼影像）
  *   - theme: 'light'（美术馆柔白）| 'dark'（暗房碳黑），持久化至 localStorage
  *   - filter: 章节筛选（各章节，默认选中首个分类）
- *   - lightboxIndex / slideshow / bgmEnabled / videoPlaying
+ *   - lightboxIndex / slideshow
  */
 import { create } from 'zustand';
 import { chapters, photos } from '../data/library';
@@ -52,10 +52,6 @@ export interface AlbumState {
   lastViewedIndex: number | null;
   /** 灯箱幻灯片自动放映开关 */
   slideshow: boolean;
-  /** 背景音乐开关 */
-  bgmEnabled: boolean;
-  /** 婚礼视频是否正在有声播放（用于背景音乐自动让路） */
-  videoPlaying: boolean;
 
   setViewMode: (mode: ViewMode) => void;
   toggleTheme: () => void;
@@ -67,8 +63,6 @@ export interface AlbumState {
   jumpLightbox: (photoIndex: number) => void;
   toggleSlideshow: () => void;
   stopSlideshow: () => void;
-  toggleBgm: () => void;
-  setVideoPlaying: (playing: boolean) => void;
 }
 
 export const useAlbumStore = create<AlbumState>((set, get) => ({
@@ -80,14 +74,9 @@ export const useAlbumStore = create<AlbumState>((set, get) => ({
   lightboxList: DEFAULT_FILTERED_INDICES,
   lastViewedIndex: null,
   slideshow: false,
-  bgmEnabled: true,
-  videoPlaying: false,
 
   setViewMode: (viewMode) => {
-    set({
-      viewMode,
-      ...(viewMode !== 'videos' ? { videoPlaying: false } : {}),
-    });
+    set({ viewMode });
   },
 
   toggleTheme: () =>
@@ -163,11 +152,5 @@ export const useAlbumStore = create<AlbumState>((set, get) => ({
 
   stopSlideshow: () => {
     if (get().slideshow) set({ slideshow: false });
-  },
-
-  toggleBgm: () => set((s) => ({ bgmEnabled: !s.bgmEnabled })),
-
-  setVideoPlaying: (videoPlaying) => {
-    if (get().videoPlaying !== videoPlaying) set({ videoPlaying });
   },
 }));

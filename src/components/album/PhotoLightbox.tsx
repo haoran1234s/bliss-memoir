@@ -6,7 +6,7 @@
  *   - 缩放与惯性：突破原相框的全屏无框自由缩放（双指任意锚点捏合、双击定点放大、鼠标滚轮直缩），
  *     拖拽带惯性滑行与弹簧阻尼回弹；
  *   - 横向切图：三屏跟手滑动与边界橡皮筋回弹；
- *   - 业务融合：保留极简暗房顶栏、自动放映 + BGM 联动、底部 35mm 胶片导览条、键盘快捷键与返回键逐层关闭。
+ *   - 业务融合：保留极简暗房顶栏、自动放映、底部 35mm 胶片导览条、键盘快捷键与返回键逐层关闭。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -23,7 +23,6 @@ import {
   ZoomIn,
 } from 'lucide-react';
 import { photos } from '../../data/library';
-import { unlockBgmNow } from '../../media/bgm';
 import { useAlbumStore } from '../../store/useAlbumStore';
 import { getPhotoThumbEl } from './albumHelpers';
 
@@ -420,7 +419,6 @@ function PhotoLightboxSession({ session, closingRequested, onDestroyed }: PhotoL
       if (e.key === ' ') {
         if (tag === 'BUTTON') return;
         e.preventDefault();
-        if (!useAlbumStore.getState().slideshow) unlockBgmNow();
         useAlbumStore.getState().toggleSlideshow();
       } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         if (useAlbumStore.getState().slideshow) {
@@ -476,7 +474,6 @@ function PhotoLightboxSession({ session, closingRequested, onDestroyed }: PhotoL
   };
 
   const onToggleSlideshow = () => {
-    if (!slideshow) unlockBgmNow();
     toggleSlideshow();
   };
 

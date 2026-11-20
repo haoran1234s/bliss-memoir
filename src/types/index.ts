@@ -58,13 +58,6 @@ export interface MemoirVideo {
   posterUrl: string;
 }
 
-export interface MusicInfo {
-  /** 相对 public/ 的路径，或完整的 https 地址 */
-  url: string;
-  title: string;
-  artist: string;
-}
-
 /* ------------------------------------------------------------------ */
 /*  二、流水线清单（src/data/manifest.json，由 npm run photos 生成）     */
 /* ------------------------------------------------------------------ */

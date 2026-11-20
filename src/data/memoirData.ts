@@ -13,11 +13,10 @@
  *    - chapters  给每个章节文件夹起标题、配一句话、选配色（可不填）
  *    - notes     给特别想讲的照片写一段小故事（可不填）
  *    - videos    露天影院里放的视频
- *    - music     背景音乐
  *
  *  详细步骤见 README。
  */
-import type { ChapterMeta, CoupleInfo, MemoirVideo, MusicInfo, PhotoNote } from '../types';
+import type { ChapterMeta, CoupleInfo, MemoirVideo, PhotoNote } from '../types';
 
 /* ------------------------------------------------------------------ */
 /*  一、新人信息与迎宾文案                                              */
@@ -127,14 +126,3 @@ export const videos: MemoirVideo[] = [
     posterUrl: 'memoir/video/ceremony.jpg',
   },
 ];
-
-/* ------------------------------------------------------------------ */
-/*  五、背景音乐                                                        */
-/* ------------------------------------------------------------------ */
-// 演示曲目："Carefree" — Kevin MacLeod (incompetech.com)，CC BY 4.0 授权，使用需署名。
-// 换成自己的音乐：把 mp3 放到 public/memoir/audio/ 下并修改 url。
-export const music: MusicInfo = {
-  url: 'memoir/audio/bgm.mp3',
-  title: 'Carefree',
-  artist: 'Kevin MacLeod',
-};

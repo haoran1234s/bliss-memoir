@@ -115,18 +115,6 @@ img {
   }
 }
 
-/* 隐藏的音频元素 */
-.media-hidden {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 2px;
-  height: 2px;
-  opacity: 0.012;
-  pointer-events: none;
-  z-index: -1;
-}
-
 /* —— PhotoSwipe v5 全屏相册查看器适配（提高优先级防止被懒加载的 photoswipe.css 覆盖） —— */
 .pswp.bliss-pswp {
   --pswp-bg: #09090b;
